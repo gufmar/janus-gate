@@ -6,11 +6,13 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
 
 from janus_gate import __version__
 from janus_gate.config import AppConfig, ProviderName
 from janus_gate.faces.blockfrost import build_blockfrost_router
 from janus_gate.faces.koios import build_koios_router
+from janus_gate.pages import render_endpoints_html
 from janus_gate.providers import create_backend
 
 
@@ -42,7 +44,15 @@ def create_app(config: AppConfig) -> FastAPI:
             "version": __version__,
             "public_face": config.public_face.value,
             "backend": config.backend.provider.value,
+            "endpoints": "/endpoints",
         }
+
+    @app.get("/endpoints", response_class=HTMLResponse, include_in_schema=False)
+    async def endpoints_page() -> str:
+        return render_endpoints_html(
+            public_face=config.public_face,
+            backend=config.backend.provider,
+        )
 
     if config.public_face is ProviderName.BLOCKFROST:
         app.include_router(build_blockfrost_router())

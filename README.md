@@ -20,7 +20,7 @@ Proof of concept expanding the catalog **Likely** band. Covered endpoints:
 | Address transactions | `GET /addresses/{address}/transactions` | `POST /address_txs` |
 | Submit transaction | `POST /tx/submit` | `POST /submittx` |
 
-Plus Janus-native `GET /health` for probes.
+Plus Janus-native `GET /health` for probes and `GET /endpoints` for an HTML coverage overview (implemented routes are linked).
 
 See [docs/architecture.md](docs/architecture.md), [docs/api-comparison/overview.md](docs/api-comparison/overview.md), and the full triage map in [docs/api-comparison/endpoint-catalog.md](docs/api-comparison/endpoint-catalog.md).
 
