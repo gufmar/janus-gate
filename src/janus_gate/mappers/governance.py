@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from janus_gate.faces.errors import NotFoundError
 from janus_gate.mappers.util import first_row
 
 
@@ -68,18 +69,8 @@ def blockfrost_drep_ids_to_koios(rows: Any) -> list[dict[str, Any]]:
 
 def koios_drep_info_to_blockfrost(rows: Any, drep_id: str) -> dict[str, Any]:
     if not isinstance(rows, list) or not rows:
-        return {
-            "drep_id": drep_id,
-            "hex": None,
-            "amount": "0",
-            "active": False,
-            "active_epoch": None,
-            "has_script": False,
-            "retired": True,
-            "expired": False,
-            "anchor": None,
-        }
-    row = first_row(rows, "drep_info")
+        raise NotFoundError("The requested DRep has not been found.")
+    row = first_row(rows, "drep")
     status = (row.get("drep_status") or "").lower()
     return {
         "drep_id": row.get("drep_id") or drep_id,

@@ -15,6 +15,11 @@ dependencies = [
     "pydantic-settings>=2.6.0",
 ]
 
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
 [project.scripts]
 janus-gate = "janus_gate.cli:app"
 
@@ -24,6 +29,10 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/janus_gate"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
 
 [tool.uv]
 package = true

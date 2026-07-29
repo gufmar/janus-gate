@@ -183,7 +183,7 @@ class HttpProvider:
             )
         except httpx.TimeoutException as exc:
             raise ProviderError(
-                504, {"message": "Upstream timeout", "status_code": 504}
+                504, {"message": "Upstream timeout", "status_code": 504, "error": "Gateway Timeout"}
             ) from exc
         if response.status_code >= 400:
             try:

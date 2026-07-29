@@ -31,12 +31,21 @@ Proof of concept covering catalog **band 1 (Likely)** and **band 2 (Partial but 
 
 Plus Janus-native `GET /health` for probes and `GET /endpoints` for an HTML coverage overview (implemented routes are linked).
 
+Client-facing errors, 404 policy, and auth header quieting are described in [docs/api-comparison/fidelity.md](docs/api-comparison/fidelity.md).
+
 See [docs/architecture.md](docs/architecture.md), [docs/api-comparison/overview.md](docs/api-comparison/overview.md), and the full triage map in [docs/api-comparison/endpoint-catalog.md](docs/api-comparison/endpoint-catalog.md).
 
 ## Requirements
 
 - Python 3.12+
 - [uv](https://docs.astral.sh/uv/)
+
+## Tests
+
+```bash
+uv sync --group dev
+uv run pytest
+```
 
 ## System packages
 

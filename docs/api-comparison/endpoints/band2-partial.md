@@ -48,4 +48,4 @@ Shapes are Partial; proposal IDs and vote families are not fully mirrored.
 | `GET /scripts/{hash}` | `POST /script_info` |
 | `GET /scripts/datum/{hash}` | `POST /datum_info` |
 
-Missing hashes may surface as empty/default objects or upstream 404 depending on provider.
+Missing hashes may surface as upstream **404** (face-shaped) rather than invented stub objects.

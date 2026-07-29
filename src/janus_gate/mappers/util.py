@@ -4,18 +4,20 @@ from __future__ import annotations
 
 from typing import Any
 
+from janus_gate.faces.errors import MappingError, NotFoundError
+
 
 def first_row(rows: Any, label: str) -> dict[str, Any]:
     if isinstance(rows, list):
         if not rows:
-            raise ValueError(f"Upstream {label} response was empty")
+            raise NotFoundError(f"The requested {label} has not been found.")
         row = rows[0]
         if not isinstance(row, dict):
-            raise ValueError(f"Unexpected {label} row type")
+            raise MappingError(f"Unexpected {label} row type")
         return row
     if isinstance(rows, dict):
         return rows
-    raise ValueError(f"Unexpected {label} payload")
+    raise MappingError(f"Unexpected {label} payload")
 
 
 def amount_from_value_and_assets(

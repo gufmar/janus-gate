@@ -4,13 +4,15 @@ from __future__ import annotations
 
 from typing import Any
 
+from janus_gate.faces.errors import NotFoundError
 from janus_gate.mappers.util import first_row
 
 
 def koios_datum_to_blockfrost(rows: Any, datum_hash: str) -> dict[str, Any]:
+    del datum_hash  # used only for NotFound messaging via first_row label
     if not isinstance(rows, list) or not rows:
-        raise ValueError("Datum not found")
-    row = first_row(rows, "datum_info")
+        raise NotFoundError("The requested datum has not been found.")
+    row = first_row(rows, "datum")
     value = row.get("value")
     if value is None and row.get("bytes") is not None:
         # Some Koios variants expose CBOR bytes only.
@@ -34,8 +36,8 @@ def blockfrost_datum_to_koios(
 
 def koios_script_info_to_blockfrost(rows: Any, script_hash: str) -> dict[str, Any]:
     if not isinstance(rows, list) or not rows:
-        return {"script_hash": script_hash, "type": "plutusV2", "serialised_size": None}
-    row = first_row(rows, "script_info")
+        raise NotFoundError("The requested script has not been found.")
+    row = first_row(rows, "script")
     script_type = row.get("type") or row.get("script_type") or "plutusV2"
     return {
         "script_hash": row.get("script_hash") or script_hash,

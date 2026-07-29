@@ -16,6 +16,7 @@ from janus_gate.auth import (
 )
 from janus_gate.config import AppConfig, ProviderName, public_url
 from janus_gate.faces.blockfrost import build_blockfrost_router
+from janus_gate.faces.errors import register_face_exception_handlers
 from janus_gate.faces.koios import build_koios_router
 from janus_gate.pages import render_endpoints_html
 from janus_gate.providers import create_backend
@@ -44,6 +45,7 @@ def create_app(config: AppConfig) -> FastAPI:
         lifespan=lifespan,
     )
     app.add_middleware(ApiKeyMappingMiddleware, config=config)
+    register_face_exception_handlers(app, config.public_face)
 
     @app.get("/health")
     async def health() -> dict[str, Any]:

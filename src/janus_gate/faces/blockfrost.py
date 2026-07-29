@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import PlainTextResponse
 
 from janus_gate.config import ProviderName
 from janus_gate.faces.common import pagination_params, run_upstream
+from janus_gate.faces.errors import BadRequestError
 from janus_gate.mappers.registry import (
     fetch_account_addresses_as,
     fetch_account_as,
@@ -429,7 +430,7 @@ def build_blockfrost_router() -> APIRouter:
     async def tx_submit(request: Request):
         body = await request.body()
         if not body:
-            raise HTTPException(status_code=400, detail="Empty transaction body")
+            raise BadRequestError("Empty transaction body")
         result = await run_upstream(submit_tx_as(request.app.state.backend, body))
         if isinstance(result, str):
             return PlainTextResponse(f'"{result}"', media_type="application/json")

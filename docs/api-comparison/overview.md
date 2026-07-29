@@ -15,6 +15,8 @@ This folder compares Blockfrost and Koios endpoints so Janus Gate can grow cover
 
 For every published route on both providers, including **BF-only** / **Koios-only** gaps and suggested Janus priority bands, see [endpoint-catalog.md](endpoint-catalog.md).
 
+Client fidelity (error shapes, 404 vs stubs, auth headers, pagination notes): [fidelity.md](fidelity.md).
+
 ## Implemented matrix
 
 | Concept | Blockfrost | Koios | Notes |

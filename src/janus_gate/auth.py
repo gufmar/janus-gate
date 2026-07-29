@@ -124,6 +124,7 @@ def auth_health_payload(auth: AuthConfig) -> dict[str, Any]:
             if not fallback
             else mask_api_key(fallback)
         ),
+        "expose_janus_headers": auth.expose_janus_headers,
     }
 
 
@@ -165,11 +166,12 @@ class ApiKeyMappingMiddleware(BaseHTTPMiddleware):
         finally:
             reset_backend_api_key(token)
 
-        if resolved.used_fallback:
-            response.headers["X-Janus-Auth-Warning"] = (
-                "no matching public API key; using fallback backend credentials"
-            )
-            response.headers["X-Janus-Auth"] = "fallback"
-        else:
-            response.headers["X-Janus-Auth"] = "mapped"
+        if self._config.auth.expose_janus_headers:
+            if resolved.used_fallback:
+                response.headers["X-Janus-Auth-Warning"] = (
+                    "no matching public API key; using fallback backend credentials"
+                )
+                response.headers["X-Janus-Auth"] = "fallback"
+            else:
+                response.headers["X-Janus-Auth"] = "mapped"
         return response

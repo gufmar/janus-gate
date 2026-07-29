@@ -58,7 +58,14 @@ class KoiosProvider(HttpProvider):
             if not isinstance(rows, list) or not rows:
                 from janus_gate.providers.base import ProviderError
 
-                raise ProviderError(404, {"message": "Block not found", "status_code": 404})
+                raise ProviderError(
+                    404,
+                    {
+                        "status_code": 404,
+                        "error": "Not Found",
+                        "message": "Block not found",
+                    },
+                )
             block_hash = rows[0]["hash"]
         return await self.request(
             "POST",
@@ -318,7 +325,12 @@ class KoiosProvider(HttpProvider):
             from janus_gate.providers.base import ProviderError
 
             raise ProviderError(
-                400, {"message": "Invalid asset id", "status_code": 400}
+                400,
+                {
+                    "status_code": 400,
+                    "error": "Bad Request",
+                    "message": "Invalid asset id",
+                },
             )
         policy_id, asset_name = asset[:56], asset[56:]
         return await self.request(

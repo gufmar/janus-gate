@@ -16,3 +16,4 @@ auth:
     #   backend_key: mainnetYourBlockfrostProjectId
   # Fallback Blockfrost project_id when Bearer is missing/unknown (or null for none).
   fallback_backend_key: null
+  # expose_janus_headers: false

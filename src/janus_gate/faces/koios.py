@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
 from janus_gate.config import ProviderName
 from janus_gate.faces.common import run_upstream
+from janus_gate.faces.errors import BadRequestError
 from janus_gate.mappers.registry import (
     fetch_account_addresses_as,
     fetch_account_as,
@@ -142,9 +143,8 @@ def build_koios_router() -> APIRouter:
     ) -> Any:
         number = _parse_eq_int(epoch_no)
         if number is None:
-            raise HTTPException(
-                status_code=400,
-                detail="Janus PoC requires epoch_no=eq.N for GET /blocks",
+            raise BadRequestError(
+                "Janus PoC requires epoch_no=eq.N for GET /blocks"
             )
         count, page, bf_order = _koios_page(limit, offset, order)
         return await run_upstream(
@@ -161,7 +161,7 @@ def build_koios_router() -> APIRouter:
     @router.post("/block_info")
     async def block_info(body: BlockInfoRequest, request: Request) -> Any:
         if not body.block_hashes:
-            raise HTTPException(status_code=400, detail="_block_hashes must not be empty")
+            raise BadRequestError("_block_hashes must not be empty")
         return await run_upstream(
             fetch_block_as(
                 ProviderName.KOIOS,
@@ -370,9 +370,8 @@ def build_koios_router() -> APIRouter:
                 else pool_id_bech32
             )
         if not pool_id:
-            raise HTTPException(
-                status_code=400,
-                detail="Janus PoC requires _pool_bech32 for GET /pool_relays",
+            raise BadRequestError(
+                "Janus PoC requires _pool_bech32 for GET /pool_relays"
             )
         return await run_upstream(
             fetch_pool_relays_as(
@@ -383,14 +382,14 @@ def build_koios_router() -> APIRouter:
     @router.post("/asset_info")
     async def asset_info(body: AssetListRequest, request: Request) -> Any:
         if not body.asset_list:
-            raise HTTPException(status_code=400, detail="_asset_list must not be empty")
+            raise BadRequestError("_asset_list must not be empty")
         first = body.asset_list[0]
         if isinstance(first, list) and len(first) >= 2:
             asset = f"{first[0]}{first[1] or ''}"
         elif isinstance(first, str):
             asset = first
         else:
-            raise HTTPException(status_code=400, detail="Unsupported _asset_list item")
+            raise BadRequestError("Unsupported _asset_list item")
         return await run_upstream(
             fetch_asset_as(ProviderName.KOIOS, request.app.state.backend, asset)
         )
@@ -462,7 +461,7 @@ def build_koios_router() -> APIRouter:
     async def submittx(request: Request) -> Any:
         body = await request.body()
         if not body:
-            raise HTTPException(status_code=400, detail="Empty transaction body")
+            raise BadRequestError("Empty transaction body")
         result = await run_upstream(submit_tx_as(request.app.state.backend, body))
         if isinstance(result, str):
             return PlainTextResponse(result, media_type="text/plain")
@@ -473,7 +472,7 @@ def build_koios_router() -> APIRouter:
 
 def _first(values: list[str], field: str) -> str:
     if not values:
-        raise HTTPException(status_code=400, detail=f"{field} must not be empty")
+        raise BadRequestError(f"{field} must not be empty")
     return values[0]
 
 
@@ -487,6 +486,10 @@ def _parse_eq_int(value: str | None) -> int | None:
 
 def _koios_page(limit: int, offset: int, order: str) -> tuple[int, int, str]:
     count = max(limit, 1)
+    if offset % count != 0:
+        raise BadRequestError(
+            f"offset ({offset}) must be a multiple of limit ({count})"
+        )
     page = (offset // count) + 1
     bf_order = "desc" if order.endswith(".desc") or order == "desc" else "asc"
     return count, page, bf_order

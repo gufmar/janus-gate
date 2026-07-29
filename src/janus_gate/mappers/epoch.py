@@ -4,19 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
-
-def _first_row(rows: Any, label: str) -> dict[str, Any]:
-    if isinstance(rows, list):
-        if not rows:
-            raise ValueError(f"Koios {label} response was empty")
-        return rows[0]
-    if isinstance(rows, dict):
-        return rows
-    raise ValueError(f"Unexpected Koios {label} payload")
+from janus_gate.mappers.util import first_row
 
 
 def koios_epoch_to_blockfrost(rows: Any) -> dict[str, Any]:
-    row = _first_row(rows, "epoch_info")
+    row = first_row(rows, "epoch_info")
     return {
         "epoch": row.get("epoch_no"),
         "start_time": row.get("start_time"),
@@ -60,7 +52,7 @@ def _str_or_none(value: Any) -> str | None:
 
 
 def koios_epoch_params_to_blockfrost(rows: Any) -> dict[str, Any]:
-    row = _first_row(rows, "epoch_params")
+    row = first_row(rows, "epoch_params")
     cost_models = row.get("cost_models")
     # Koios commonly returns list-form cost models; expose as cost_models_raw on BF.
     cost_models_raw = cost_models if isinstance(cost_models, dict) else None

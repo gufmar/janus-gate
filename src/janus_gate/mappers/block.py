@@ -4,20 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
-
-def _first_row(rows: Any, label: str) -> dict[str, Any]:
-    if isinstance(rows, list):
-        if not rows:
-            raise ValueError(f"Koios {label} response was empty")
-        return rows[0]
-    if isinstance(rows, dict):
-        return rows
-    raise ValueError(f"Unexpected Koios {label} payload")
+from janus_gate.mappers.util import first_row
 
 
 def koios_block_to_blockfrost(rows: Any) -> dict[str, Any]:
     """Map Koios /block_info (or enriched /blocks row) to Blockfrost block_content."""
-    row = _first_row(rows, "block_info")
+    row = first_row(rows, "block")
     height = row.get("block_height", row.get("block_no"))
     op_cert_counter = row.get("op_cert_counter")
     return {
@@ -75,7 +67,7 @@ def blockfrost_block_to_koios_info(payload: dict[str, Any]) -> list[dict[str, An
 
 def koios_tip_to_blockfrost(tip_rows: Any, block_detail: dict[str, Any] | None = None) -> dict[str, Any]:
     """Map Koios /tip (+ optional detail) to Blockfrost /blocks/latest."""
-    tip = _first_row(tip_rows, "tip")
+    tip = first_row(tip_rows, "tip")
     if block_detail:
         merged = {**tip, **block_detail}
         return koios_block_to_blockfrost(merged)

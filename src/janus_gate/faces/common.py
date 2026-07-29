@@ -5,20 +5,20 @@ from __future__ import annotations
 from collections.abc import Awaitable
 from typing import Any, TypeVar
 
-from fastapi import HTTPException
-
+from janus_gate.faces.errors import MappingError, NotFoundError, BadRequestError
 from janus_gate.providers.base import ProviderError
 
 T = TypeVar("T")
 
 
 async def run_upstream(coro: Awaitable[T]) -> T:
+    """Await an upstream/mapper call; domain errors propagate to face handlers."""
     try:
         return await coro
-    except ProviderError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+    except (ProviderError, NotFoundError, BadRequestError, MappingError):
+        raise
     except ValueError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        raise MappingError(str(exc)) from exc
 
 
 def pagination_params(

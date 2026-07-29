@@ -65,6 +65,9 @@ class AuthConfig(BaseModel):
     # Used when the client key is missing or not listed in key_map.
     # Empty/null means call the backend without an API key (e.g. Koios free tier).
     fallback_backend_key: str | None = None
+    # When true, set X-Janus-Auth / X-Janus-Auth-Warning on responses.
+    # Default false so the public face looks closer to native BF/Koios.
+    expose_janus_headers: bool = False
 
     @field_validator("key_map", mode="before")
     @classmethod

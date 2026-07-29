@@ -26,3 +26,5 @@ auth:
   # Used when project_id/Bearer is missing or not listed above.
   # Empty/omitted/null = call Koios without a key (free-tier limits).
   fallback_backend_key: null
+  # When true, responses include X-Janus-Auth / X-Janus-Auth-Warning.
+  # expose_janus_headers: false
