@@ -21,7 +21,35 @@ class BackendProvider(Protocol):
 
     async def get_tip(self) -> Any: ...
 
+    async def get_genesis(self) -> Any: ...
+
+    async def get_epoch(self, number: int | None = None) -> Any: ...
+
+    async def get_epoch_parameters(self, number: int | None = None) -> Any: ...
+
+    async def get_block(self, hash_or_number: str) -> Any: ...
+
     async def get_address_info(self, address: str) -> Any: ...
+
+    async def get_address_utxos(
+        self,
+        address: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any: ...
+
+    async def get_address_transactions(
+        self,
+        address: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any: ...
+
+    async def submit_tx(self, cbor: bytes) -> Any: ...
 
     async def aclose(self) -> None: ...
 
@@ -43,8 +71,17 @@ class HttpProvider:
         *,
         json: Any | None = None,
         params: dict[str, Any] | None = None,
+        content: bytes | None = None,
+        headers: dict[str, str] | None = None,
     ) -> Any:
-        response = await self._client.request(method, path, json=json, params=params)
+        response = await self._client.request(
+            method,
+            path,
+            json=json,
+            params=params,
+            content=content,
+            headers=headers,
+        )
         if response.status_code >= 400:
             try:
                 detail = response.json()
@@ -53,7 +90,28 @@ class HttpProvider:
             raise ProviderError(response.status_code, detail)
         if response.status_code == 204 or not response.content:
             return None
-        return response.json()
+        content_type = response.headers.get("content-type", "")
+        if "application/json" in content_type:
+            return response.json()
+        text = response.text.strip()
+        if text.startswith("{") or text.startswith("["):
+            return response.json()
+        # Blockfrost submit returns a quoted tx hash string.
+        if text.startswith('"') and text.endswith('"'):
+            return json_loads_maybe(text)
+        return text
 
     async def aclose(self) -> None:
         await self._client.aclose()
+
+
+def json_loads_maybe(text: str) -> Any:
+    import json
+
+    return json.loads(text)
+
+
+def page_to_offset(page: int, count: int) -> int:
+    safe_page = max(page, 1)
+    safe_count = max(count, 1)
+    return (safe_page - 1) * safe_count

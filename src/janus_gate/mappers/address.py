@@ -81,3 +81,129 @@ def blockfrost_address_to_koios(payload: dict[str, Any]) -> list[dict[str, Any]]
             "utxo_set": [],
         }
     ]
+
+
+def _utxo_amount(utxo: dict[str, Any]) -> list[dict[str, str]]:
+    amounts: list[dict[str, str]] = []
+    value = utxo.get("value")
+    if value is not None:
+        amounts.append({"unit": "lovelace", "quantity": str(value)})
+    for asset in utxo.get("asset_list") or []:
+        policy = asset.get("policy_id") or ""
+        name = asset.get("asset_name") or ""
+        quantity = asset.get("quantity")
+        if quantity is None:
+            continue
+        amounts.append({"unit": f"{policy}{name}", "quantity": str(quantity)})
+    if not amounts:
+        amounts = [{"unit": "lovelace", "quantity": "0"}]
+    return amounts
+
+
+def _ref_script_hash(reference_script: Any) -> str | None:
+    if reference_script is None:
+        return None
+    if isinstance(reference_script, dict):
+        return reference_script.get("hash") or reference_script.get("script_hash")
+    if isinstance(reference_script, str):
+        return reference_script
+    return None
+
+
+def koios_address_utxos_to_blockfrost(rows: Any, address: str) -> list[dict[str, Any]]:
+    """Map Koios /address_utxos to Blockfrost GET /addresses/{address}/utxos."""
+    if not isinstance(rows, list):
+        raise ValueError("Unexpected Koios address_utxos payload")
+    mapped: list[dict[str, Any]] = []
+    for utxo in rows:
+        tx_index = utxo.get("tx_index")
+        if tx_index is None:
+            tx_index = utxo.get("tx_out_index")
+        mapped.append(
+            {
+                "address": utxo.get("address") or address,
+                "tx_hash": utxo.get("tx_hash"),
+                "tx_index": tx_index,
+                "output_index": tx_index,
+                "amount": _utxo_amount(utxo),
+                # Koios address_utxos typically lacks block hash (height/time only).
+                "block": None,
+                "data_hash": utxo.get("datum_hash"),
+                "inline_datum": utxo.get("inline_datum"),
+                "reference_script_hash": _ref_script_hash(utxo.get("reference_script")),
+            }
+        )
+    return mapped
+
+
+def blockfrost_address_utxos_to_koios(rows: Any) -> list[dict[str, Any]]:
+    """Map Blockfrost address UTxOs to Koios /address_utxos array shape."""
+    if not isinstance(rows, list):
+        raise ValueError("Unexpected Blockfrost address utxos payload")
+    mapped: list[dict[str, Any]] = []
+    for utxo in rows:
+        lovelace = "0"
+        asset_list: list[dict[str, str]] = []
+        for item in utxo.get("amount") or []:
+            unit = item.get("unit")
+            quantity = str(item.get("quantity", "0"))
+            if unit == "lovelace":
+                lovelace = quantity
+            elif unit:
+                asset_list.append(
+                    {
+                        "policy_id": unit[:56],
+                        "asset_name": unit[56:],
+                        "quantity": quantity,
+                    }
+                )
+        mapped.append(
+            {
+                "address": utxo.get("address"),
+                "tx_hash": utxo.get("tx_hash"),
+                "tx_index": utxo.get("output_index", utxo.get("tx_index")),
+                "value": lovelace,
+                "asset_list": asset_list,
+                "datum_hash": utxo.get("data_hash"),
+                "inline_datum": utxo.get("inline_datum"),
+                "reference_script": (
+                    {"hash": utxo["reference_script_hash"]}
+                    if utxo.get("reference_script_hash")
+                    else None
+                ),
+                "block_height": None,
+                "block_time": None,
+            }
+        )
+    return mapped
+
+
+def koios_address_txs_to_blockfrost(rows: Any) -> list[dict[str, Any]]:
+    """Map Koios /address_txs to Blockfrost GET /addresses/{address}/transactions."""
+    if not isinstance(rows, list):
+        raise ValueError("Unexpected Koios address_txs payload")
+    return [
+        {
+            "tx_hash": row.get("tx_hash"),
+            # Koios address_txs has no tx_index in the address list response.
+            "tx_index": 0,
+            "block_height": row.get("block_height"),
+            "block_time": row.get("block_time"),
+        }
+        for row in rows
+    ]
+
+
+def blockfrost_address_txs_to_koios(rows: Any) -> list[dict[str, Any]]:
+    """Map Blockfrost address transactions to Koios /address_txs array shape."""
+    if not isinstance(rows, list):
+        raise ValueError("Unexpected Blockfrost address transactions payload")
+    return [
+        {
+            "tx_hash": row.get("tx_hash"),
+            "epoch_no": None,
+            "block_height": row.get("block_height"),
+            "block_time": row.get("block_time"),
+        }
+        for row in rows
+    ]

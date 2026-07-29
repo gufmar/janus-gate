@@ -6,12 +6,19 @@ This is not a 1:1 reverse proxy. Paths, HTTP methods, field names, and shapes ar
 
 ## Status
 
-Proof of concept. Covered endpoints:
+Proof of concept expanding the catalog **Likely** band. Covered endpoints:
 
 | Concept | Blockfrost face | Koios face |
 | --- | --- | --- |
 | Network tip / latest block | `GET /blocks/latest` | `GET /tip` |
+| Block by hash/height | `GET /blocks/{hash_or_number}` | `POST /block_info` |
+| Genesis | `GET /genesis` | `GET /genesis` |
+| Epoch info | `GET /epochs/latest`, `/epochs/{number}` | `GET /epoch_info` |
+| Epoch parameters | `GET /epochs/.../parameters` | `GET /epoch_params` |
 | Address info | `GET /addresses/{address}` | `POST /address_info` |
+| Address UTxOs | `GET /addresses/{address}/utxos` | `POST /address_utxos` |
+| Address transactions | `GET /addresses/{address}/transactions` | `POST /address_txs` |
+| Submit transaction | `POST /tx/submit` | `POST /submittx` |
 
 Plus Janus-native `GET /health` for probes.
 

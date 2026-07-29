@@ -19,8 +19,13 @@ For every published route on both providers, including **BF-only** / **Koios-onl
 
 | Concept | Blockfrost | Koios | Dominant classes | Notes |
 | --- | --- | --- | --- | --- |
-| Network tip | `GET /blocks/latest` | `GET /tip` | Rename, Convert, Gap | See [network-tip.md](endpoints/network-tip.md) |
-| Address info | `GET /addresses/{address}` | `POST /address_info` | Rename, Convert, Gap | See [address-info.md](endpoints/address-info.md) |
+| Network tip | `GET /blocks/latest` | `GET /tip` | Rename, Convert, Gap | [network-tip.md](endpoints/network-tip.md) |
+| Block by id | `GET /blocks/{hash_or_number}` | `POST /block_info` | Rename, Convert | [block-info.md](endpoints/block-info.md) |
+| Genesis | `GET /genesis` | `GET /genesis` | Rename, Convert | [genesis.md](endpoints/genesis.md) |
+| Epoch info / params | `/epochs/...` | `/epoch_info`, `/epoch_params` | Rename, Convert | [epochs.md](endpoints/epochs.md) |
+| Address info | `GET /addresses/{address}` | `POST /address_info` | Rename, Convert, Gap | [address-info.md](endpoints/address-info.md) |
+| Address UTxOs / txs | `/addresses/.../utxos`, `/transactions` | `/address_utxos`, `/address_txs` | Convert, Gap | [address-utxos-txs.md](endpoints/address-utxos-txs.md) |
+| Submit tx | `POST /tx/submit` | `POST /submittx` | Compatible (passthrough) | [address-utxos-txs.md](endpoints/address-utxos-txs.md) |
 
 ## Auth headers
 
