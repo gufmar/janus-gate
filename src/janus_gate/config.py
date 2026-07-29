@@ -19,6 +19,21 @@ class ProviderName(StrEnum):
 class ServerConfig(BaseModel):
     host: str = "0.0.0.0"
     port: int = Field(default=8080, ge=1, le=65535)
+    # Public URL prefix when Janus is behind a reverse proxy that strips it
+    # (e.g. browser uses /janus/..., nginx forwards / to Janus). Example: /janus
+    base_path: str = ""
+
+    @field_validator("base_path", mode="before")
+    @classmethod
+    def normalize_base_path(cls, value: Any) -> str:
+        if value is None:
+            return ""
+        text = str(value).strip()
+        if not text or text == "/":
+            return ""
+        if not text.startswith("/"):
+            text = f"/{text}"
+        return text.rstrip("/")
 
 
 class BackendConfig(BaseModel):
@@ -77,7 +92,8 @@ def _apply_env_overrides(data: dict[str, Any]) -> dict[str, Any]:
 
     host = os.environ.get("JANUS_HOST")
     port = os.environ.get("JANUS_PORT")
-    if host or port:
+    base_path = os.environ.get("JANUS_BASE_PATH")
+    if host or port or base_path is not None:
         server = data.setdefault("server", {})
         if not isinstance(server, dict):
             raise ValueError("server must be a mapping")
@@ -85,6 +101,8 @@ def _apply_env_overrides(data: dict[str, Any]) -> dict[str, Any]:
             server["host"] = host
         if port:
             server["port"] = int(port)
+        if base_path is not None:
+            server["base_path"] = base_path
 
     return data
 
@@ -126,3 +144,13 @@ def load_config(path: str | Path | None = None) -> AppConfig:
         raise ValueError("backend.base_url is required")
 
     return AppConfig.model_validate(data)
+
+
+def public_url(base_path: str, path: str) -> str:
+    """Join configured public base_path with an app-absolute path."""
+    if not path.startswith("/"):
+        path = f"/{path}"
+    prefix = (base_path or "").rstrip("/")
+    if not prefix:
+        return path
+    return f"{prefix}{path}"

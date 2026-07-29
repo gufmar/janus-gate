@@ -66,6 +66,7 @@ def validate_config(
     typer.echo(f"  backend:     {loaded.backend.provider.value}")
     typer.echo(f"  base_url:    {loaded.backend.base_url}")
     typer.echo(f"  listen:      {loaded.server.host}:{loaded.server.port}")
+    typer.echo(f"  base_path:   {loaded.server.base_path or '/'}")
     typer.echo(
         f"  api_key:     {'set' if loaded.backend.api_key else 'not set'}"
     )
@@ -115,6 +116,7 @@ def serve(
         fastapi_app,
         host=loaded.server.host,
         port=loaded.server.port,
+        root_path=loaded.server.base_path,
         log_level="info",
     )
 

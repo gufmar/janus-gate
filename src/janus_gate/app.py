@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 
 from janus_gate import __version__
-from janus_gate.config import AppConfig, ProviderName
+from janus_gate.config import AppConfig, ProviderName, public_url
 from janus_gate.faces.blockfrost import build_blockfrost_router
 from janus_gate.faces.koios import build_koios_router
 from janus_gate.pages import render_endpoints_html
@@ -34,6 +34,7 @@ def create_app(config: AppConfig) -> FastAPI:
             "Bidirectional Cardano API compatibility gateway. "
             "TLS and public auth are expected from a reverse proxy such as nginx."
         ),
+        root_path=config.server.base_path,
         lifespan=lifespan,
     )
 
@@ -44,7 +45,8 @@ def create_app(config: AppConfig) -> FastAPI:
             "version": __version__,
             "public_face": config.public_face.value,
             "backend": config.backend.provider.value,
-            "endpoints": "/endpoints",
+            "base_path": config.server.base_path or "/",
+            "endpoints": public_url(config.server.base_path, "/endpoints"),
         }
 
     @app.get("/endpoints", response_class=HTMLResponse, include_in_schema=False)
@@ -52,6 +54,7 @@ def create_app(config: AppConfig) -> FastAPI:
         return render_endpoints_html(
             public_face=config.public_face,
             backend=config.backend.provider,
+            base_path=config.server.base_path,
         )
 
     if config.public_face is ProviderName.BLOCKFROST:

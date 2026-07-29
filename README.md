@@ -139,6 +139,15 @@ A unit file lives at [deploy/janus-gate.service](deploy/janus-gate.service). Ins
 
 Janus Gate speaks plain HTTP. Put nginx (or another reverse proxy) in front for TLS, public auth, rate limits, and buffering. Point the upstream at Janus Gate's listen address (default `0.0.0.0:8080`, or bind to localhost only in production).
 
+If the public URL is under a subpath (for example `https://example.com/janus/...`) and nginx strips `/janus` before proxying, set the same prefix in config so HTML links and OpenAPI root-path stay correct:
+
+```yaml
+server:
+  base_path: /janus
+```
+
+Or via env: `JANUS_BASE_PATH=/janus`.
+
 ## License
 
 Apache License 2.0. See [LICENSE](LICENSE).

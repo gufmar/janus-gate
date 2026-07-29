@@ -7,13 +7,14 @@ from collections import defaultdict
 
 from janus_gate import __version__
 from janus_gate.catalog import EndpointEntry, endpoints_for_face
-from janus_gate.config import ProviderName
+from janus_gate.config import ProviderName, public_url
 
 
 def render_endpoints_html(
     *,
     public_face: ProviderName,
     backend: ProviderName,
+    base_path: str = "",
 ) -> str:
     entries = endpoints_for_face(public_face)
     implemented = sum(1 for e in entries if e.implemented)
@@ -23,7 +24,7 @@ def render_endpoints_html(
 
     sections: list[str] = []
     for group, items in groups.items():
-        rows = "\n".join(_row(item) for item in items)
+        rows = "\n".join(_row(item, base_path) for item in items)
         sections.append(
             f"""
       <section>
@@ -44,6 +45,10 @@ def render_endpoints_html(
       </section>
 """
         )
+
+    health_href = public_url(base_path, "/health")
+    docs_href = public_url(base_path, "/docs")
+    base_note = html.escape(base_path or "/")
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -134,12 +139,14 @@ def render_endpoints_html(
       version {html.escape(__version__)}
       · public face <strong>{html.escape(public_face.value)}</strong>
       · backend <strong>{html.escape(backend.value)}</strong>
+      · base path <strong>{base_note}</strong>
       · {implemented}/{len(entries)} implemented
-      · <a href="/health">/health</a>
-      · <a href="/docs">/docs</a>
+      · <a href="{html.escape(health_href)}">{html.escape(health_href)}</a>
+      · <a href="{html.escape(docs_href)}">{html.escape(docs_href)}</a>
     </p>
     <p class="meta">
-      Implemented <strong>GET</strong> routes are linked (path parameters may still need values).
+      Implemented <strong>GET</strong> routes are linked with the configured
+      <code>server.base_path</code> (path parameters may still need values).
       <strong>POST</strong> routes are marked implemented but not clickable.
       Grey rows are known face routes not wired yet.
     </p>
@@ -154,7 +161,7 @@ def render_endpoints_html(
 """
 
 
-def _row(entry: EndpointEntry) -> str:
+def _row(entry: EndpointEntry, base_path: str) -> str:
     status = (
         '<span class="badge ok">implemented</span>'
         if entry.implemented
@@ -162,7 +169,8 @@ def _row(entry: EndpointEntry) -> str:
     )
     path_html = html.escape(entry.path)
     if entry.implemented and entry.method == "GET" and entry.href:
-        path_cell = f'<a href="{html.escape(entry.href)}"><code>{path_html}</code></a>'
+        href = public_url(base_path, entry.href)
+        path_cell = f'<a href="{html.escape(href)}"><code>{path_html}</code></a>'
     else:
         path_cell = f"<code>{path_html}</code>"
     return (

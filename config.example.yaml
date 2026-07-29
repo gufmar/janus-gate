@@ -2,6 +2,10 @@
 server:
   host: 0.0.0.0
   port: 8080
+  # Public URL prefix when the reverse proxy mounts Janus under a subpath and
+  # strips that prefix before proxying (browser: /janus/..., upstream: /...).
+  # Leave empty for root mount. Example: /janus
+  # base_path: /janus
 
 # Public API surface clients talk to: blockfrost | koios
 public_face: blockfrost
