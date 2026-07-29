@@ -22,6 +22,75 @@ See [docs/architecture.md](docs/architecture.md), [docs/api-comparison/overview.
 - Python 3.12+
 - [uv](https://docs.astral.sh/uv/)
 
+## System packages
+
+On Debian/Ubuntu (typical VM), install the OS packages below before `uv sync`:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y python3 python3-venv python3-pip curl ca-certificates
+```
+
+Then install `uv` (official installer):
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+The installer places `uv` in `~/.local/bin` by default. Make sure that directory is on your `PATH`, then verify:
+
+```bash
+uv --version
+```
+
+### PATH on Debian (bash)
+
+`PATH` is not usually set in one global file for your user tools. On a typical Debian bash setup:
+
+| File | When it runs |
+| --- | --- |
+| `~/.profile` | Login shells (common for SSH sessions). Debian’s default here already prepends `~/.local/bin` and `~/bin` when those dirs exist. |
+| `~/.bashrc` | Interactive non-login bash shells (new terminal tabs, `bash` without login). Often sourced from `~/.profile` when bash is the login shell. |
+| `/etc/environment` or `/etc/profile` | System-wide; prefer user files for `uv`. |
+
+If `uv` is installed but `uv: command not found`, check which shell file is active and that `~/.local/bin` is included.
+
+**Option A – rely on Debian’s default `~/.profile` (recommended)**
+
+Confirm these lines exist (stock Debian images usually already have them):
+
+```bash
+# set PATH so it includes user's private bin if it exists
+if [ -d "$HOME/.local/bin" ] ; then
+    PATH="$HOME/.local/bin:$PATH"
+fi
+```
+
+Then either open a new SSH login session, or reload:
+
+```bash
+source ~/.profile
+```
+
+**Option B – also add it in `~/.bashrc` (handy for non-login interactive shells)**
+
+```bash
+# ~/.bashrc
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+Reload with `source ~/.bashrc`, or open a new shell.
+
+**Quick checks**
+
+```bash
+echo "$PATH"
+which uv
+ls -l "$HOME/.local/bin/uv"
+```
+
+**systemd note:** service units do not load `~/.profile` or `~/.bashrc`. Prefer a full path in `ExecStart` (for example `/home/<user>/.local/bin/uv run ...`) or set `Environment=PATH=...` / an `EnvironmentFile` in the unit. See [deploy/janus-gate.service](deploy/janus-gate.service).
+
 ## Quickstart
 
 ```bash
