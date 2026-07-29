@@ -96,3 +96,30 @@ def test_script_missing_is_not_found() -> None:
 def test_datum_missing_is_not_found() -> None:
     with pytest.raises(NotFoundError):
         script_mapper.koios_datum_to_blockfrost([], "deadbeef")
+
+
+def test_block_txs_to_hashes() -> None:
+    rows = [
+        {"block_hash": "b", "tx_hash": "aaa"},
+        {"block_hash": "b", "tx_hash": "bbb"},
+    ]
+    assert block_mapper.koios_block_txs_to_blockfrost(rows) == ["aaa", "bbb"]
+
+
+def test_account_txs_partial_address() -> None:
+    rows = [{"tx_hash": "t1", "block_height": 1, "block_time": 2}]
+    mapped = account_mapper.koios_account_txs_to_blockfrost(rows, "stake1abc")
+    assert mapped[0]["address"] == "stake1abc"
+    assert mapped[0]["tx_index"] == 0
+    assert mapped[0]["tx_hash"] == "t1"
+
+
+def test_metalabels_mapping() -> None:
+    from janus_gate.mappers import metadata as metadata_mapper
+
+    labels = metadata_mapper.koios_metalabels_to_blockfrost([{"key": "721"}])
+    assert labels == [{"label": "721", "cip10": None, "count": None}]
+    by_label = metadata_mapper.koios_tx_by_metalabel_to_blockfrost(
+        [{"tx_hash": "abc", "block_height": 1}]
+    )
+    assert by_label == [{"tx_hash": "abc", "json_metadata": None}]

@@ -14,11 +14,13 @@ from janus_gate.mappers.registry import (
     fetch_account_delegations_as,
     fetch_account_history_as,
     fetch_account_rewards_as,
+    fetch_account_transactions_as,
     fetch_address_as,
     fetch_address_transactions_as,
     fetch_address_utxos_as,
     fetch_asset_as,
     fetch_block_as,
+    fetch_block_transactions_as,
     fetch_committee_as,
     fetch_datum_as,
     fetch_drep_as,
@@ -27,6 +29,8 @@ from janus_gate.mappers.registry import (
     fetch_epoch_blocks_as,
     fetch_epoch_parameters_as,
     fetch_genesis_as,
+    fetch_metadata_by_label_as,
+    fetch_metadata_labels_as,
     fetch_pool_as,
     fetch_pool_delegators_as,
     fetch_pool_history_as,
@@ -51,6 +55,49 @@ def build_blockfrost_router() -> APIRouter:
     async def blocks_latest(request: Request):
         return await run_upstream(
             fetch_tip_as(ProviderName.BLOCKFROST, request.app.state.backend)
+        )
+
+    @router.get("/blocks/latest/txs")
+    async def blocks_latest_txs(
+        request: Request,
+        count: int = Query(default=100, ge=1, le=100),
+        page: int = Query(default=1, ge=1),
+        order: str = Query(default="asc"),
+    ):
+        tip = await run_upstream(
+            fetch_tip_as(ProviderName.BLOCKFROST, request.app.state.backend)
+        )
+        block_id = tip.get("hash") or tip.get("height")
+        if block_id is None:
+            from janus_gate.faces.errors import NotFoundError
+
+            raise NotFoundError("The requested block has not been found.")
+        params = pagination_params(count, page, order)
+        return await run_upstream(
+            fetch_block_transactions_as(
+                ProviderName.BLOCKFROST,
+                request.app.state.backend,
+                str(block_id),
+                **params,
+            )
+        )
+
+    @router.get("/blocks/{hash_or_number}/txs")
+    async def blocks_txs(
+        hash_or_number: str,
+        request: Request,
+        count: int = Query(default=100, ge=1, le=100),
+        page: int = Query(default=1, ge=1),
+        order: str = Query(default="asc"),
+    ):
+        params = pagination_params(count, page, order)
+        return await run_upstream(
+            fetch_block_transactions_as(
+                ProviderName.BLOCKFROST,
+                request.app.state.backend,
+                hash_or_number,
+                **params,
+            )
         )
 
     @router.get("/blocks/{hash_or_number}")
@@ -144,6 +191,40 @@ def build_blockfrost_router() -> APIRouter:
         return await run_upstream(
             fetch_tx_cbor_as(
                 ProviderName.BLOCKFROST, request.app.state.backend, tx_hash
+            )
+        )
+
+    @router.get("/metadata/txs/labels")
+    async def metadata_labels(
+        request: Request,
+        count: int = Query(default=100, ge=1, le=100),
+        page: int = Query(default=1, ge=1),
+        order: str = Query(default="asc"),
+    ):
+        params = pagination_params(count, page, order)
+        return await run_upstream(
+            fetch_metadata_labels_as(
+                ProviderName.BLOCKFROST,
+                request.app.state.backend,
+                **params,
+            )
+        )
+
+    @router.get("/metadata/txs/labels/{label}")
+    async def metadata_by_label(
+        label: str,
+        request: Request,
+        count: int = Query(default=100, ge=1, le=100),
+        page: int = Query(default=1, ge=1),
+        order: str = Query(default="asc"),
+    ):
+        params = pagination_params(count, page, order)
+        return await run_upstream(
+            fetch_metadata_by_label_as(
+                ProviderName.BLOCKFROST,
+                request.app.state.backend,
+                label,
+                **params,
             )
         )
 
@@ -264,6 +345,24 @@ def build_blockfrost_router() -> APIRouter:
                 ProviderName.BLOCKFROST,
                 request.app.state.backend,
                 stake_address,
+            )
+        )
+
+    @router.get("/accounts/{stake_address}/transactions")
+    async def account_transactions(
+        stake_address: str,
+        request: Request,
+        count: int = Query(default=100, ge=1, le=100),
+        page: int = Query(default=1, ge=1),
+        order: str = Query(default="asc"),
+    ):
+        params = pagination_params(count, page, order)
+        return await run_upstream(
+            fetch_account_transactions_as(
+                ProviderName.BLOCKFROST,
+                request.app.state.backend,
+                stake_address,
+                **params,
             )
         )
 

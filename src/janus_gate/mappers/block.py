@@ -88,3 +88,33 @@ def blockfrost_latest_to_koios_tip(block: dict[str, Any]) -> list[dict[str, Any]
             "block_time": block.get("time"),
         }
     ]
+
+
+def koios_block_txs_to_blockfrost(rows: Any) -> list[str]:
+    """Map Koios /block_txs rows to Blockfrost list of tx hashes."""
+    if not isinstance(rows, list):
+        raise ValueError("Unexpected Koios block_txs payload")
+    # Preserve order as returned (already paginated by provider when needed).
+    return [
+        row.get("tx_hash")
+        for row in rows
+        if isinstance(row, dict) and row.get("tx_hash")
+    ]
+
+
+def blockfrost_block_txs_to_koios(
+    rows: Any, block_hash: str
+) -> list[dict[str, Any]]:
+    if not isinstance(rows, list):
+        raise ValueError("Unexpected Blockfrost block txs payload")
+    return [
+        {
+            "block_hash": block_hash,
+            "tx_hash": tx_hash,
+            "epoch_no": None,
+            "block_height": None,
+            "block_time": None,
+        }
+        for tx_hash in rows
+        if isinstance(tx_hash, str)
+    ]

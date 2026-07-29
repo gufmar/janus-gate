@@ -12,6 +12,7 @@ from janus_gate.mappers import block as block_mapper
 from janus_gate.mappers import epoch as epoch_mapper
 from janus_gate.mappers import genesis as genesis_mapper
 from janus_gate.mappers import governance as governance_mapper
+from janus_gate.mappers import metadata as metadata_mapper
 from janus_gate.mappers import pool as pool_mapper
 from janus_gate.mappers import script as script_mapper
 from janus_gate.mappers import tx as tx_mapper
@@ -102,6 +103,27 @@ async def fetch_block_as(
         return block_mapper.koios_block_to_blockfrost(raw)
     if face is ProviderName.KOIOS and backend.name == "blockfrost":
         return block_mapper.blockfrost_block_to_koios_info(raw)
+    return raw
+
+
+async def fetch_block_transactions_as(
+    face: ProviderName,
+    backend: BackendProvider,
+    hash_or_number: str,
+    *,
+    count: int = 100,
+    page: int = 1,
+    order: str = "asc",
+) -> Any:
+    raw = await backend.get_block_transactions(
+        hash_or_number, count=count, page=page, order=order
+    )
+    if face is ProviderName.BLOCKFROST and backend.name == "koios":
+        return block_mapper.koios_block_txs_to_blockfrost(raw)
+    if face is ProviderName.KOIOS and backend.name == "blockfrost":
+        # Prefer hash when BF returned strings only; path may be height.
+        block_hash = hash_or_number if not hash_or_number.isdigit() else hash_or_number
+        return block_mapper.blockfrost_block_txs_to_koios(raw, block_hash)
     return raw
 
 
@@ -259,6 +281,25 @@ async def fetch_account_addresses_as(
         return account_mapper.koios_account_addresses_to_blockfrost(raw)
     if face is ProviderName.KOIOS and backend.name == "blockfrost":
         return account_mapper.blockfrost_account_addresses_to_koios(raw, stake_address)
+    return raw
+
+
+async def fetch_account_transactions_as(
+    face: ProviderName,
+    backend: BackendProvider,
+    stake_address: str,
+    *,
+    count: int = 100,
+    page: int = 1,
+    order: str = "asc",
+) -> Any:
+    raw = await backend.get_account_transactions(
+        stake_address, count=count, page=page, order=order
+    )
+    if face is ProviderName.BLOCKFROST and backend.name == "koios":
+        return account_mapper.koios_account_txs_to_blockfrost(raw, stake_address)
+    if face is ProviderName.KOIOS and backend.name == "blockfrost":
+        return account_mapper.blockfrost_account_txs_to_koios(raw)
     return raw
 
 
@@ -447,6 +488,41 @@ async def fetch_datum_as(
         return script_mapper.koios_datum_to_blockfrost(raw, datum_hash)
     if face is ProviderName.KOIOS and backend.name == "blockfrost":
         return script_mapper.blockfrost_datum_to_koios(raw, datum_hash)
+    return raw
+
+
+async def fetch_metadata_labels_as(
+    face: ProviderName,
+    backend: BackendProvider,
+    *,
+    count: int = 100,
+    page: int = 1,
+    order: str = "asc",
+) -> Any:
+    raw = await backend.get_metadata_labels(count=count, page=page, order=order)
+    if face is ProviderName.BLOCKFROST and backend.name == "koios":
+        return metadata_mapper.koios_metalabels_to_blockfrost(raw)
+    if face is ProviderName.KOIOS and backend.name == "blockfrost":
+        return metadata_mapper.blockfrost_metalabels_to_koios(raw)
+    return raw
+
+
+async def fetch_metadata_by_label_as(
+    face: ProviderName,
+    backend: BackendProvider,
+    label: str,
+    *,
+    count: int = 100,
+    page: int = 1,
+    order: str = "asc",
+) -> Any:
+    raw = await backend.get_metadata_by_label(
+        label, count=count, page=page, order=order
+    )
+    if face is ProviderName.BLOCKFROST and backend.name == "koios":
+        return metadata_mapper.koios_tx_by_metalabel_to_blockfrost(raw)
+    if face is ProviderName.KOIOS and backend.name == "blockfrost":
+        return metadata_mapper.blockfrost_metadata_label_to_koios(raw)
     return raw
 
 

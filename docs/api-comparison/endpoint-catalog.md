@@ -236,6 +236,7 @@ Suggested expansion order after the PoC tip + address pair:
 
 1. **High likelihood, high client value:** genesis, epochs (+ params), block_info, tx_info/utxos/metadata/cbor, address utxos/txs, account_info, pool_info/list, asset_info, submit tx. **(implemented in Janus)**
 2. **Partial but doable:** epoch blocks, governance committee/drep/proposal basics, script/datum routes, pool history/delegators/metadata/relays, account rewards/history/addresses/delegations. **(implemented in Janus; epoch stakes still Gap)**
+2.5. **High-value follow-ons:** block txs, account txs, metadata labels (+ by label). **(implemented in Janus)**
 3. **Defer / document as Gaps:** mempool, BF evaluate utilities, IPFS/metrics/nutlink, Koios-only analytics (totals, credential_*, global lists), Ogmios proxy, full epoch stake distributions.
 
 ---

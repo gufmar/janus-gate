@@ -30,6 +30,7 @@ Client fidelity (error shapes, 404 vs stubs, auth headers, pagination notes): [f
 | Address UTxOs / txs | `/addresses/.../utxos`, `/transactions` | `/address_utxos`, `/address_txs` | [address-utxos-txs.md](endpoints/address-utxos-txs.md) |
 | Account / pools / assets | accounts, pools, assets | account_info, pool_*, asset_info | [accounts-pools-assets.md](endpoints/accounts-pools-assets.md) |
 | Band 2 partials | account rewards/history, pool history/delegators, epoch blocks, governance, scripts/datums | matching Koios routes | [band2-partial.md](endpoints/band2-partial.md) |
+| Band 2.5 | block txs, account txs, metadata labels | block_txs, account_txs, tx_metalabels / tx_by_metalabel | [band25-txs-metadata.md](endpoints/band25-txs-metadata.md) |
 | Submit tx | `POST /tx/submit` | `POST /submittx` | [address-utxos-txs.md](endpoints/address-utxos-txs.md) |
 
 ## Auth headers

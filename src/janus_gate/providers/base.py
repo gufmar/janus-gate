@@ -31,6 +31,15 @@ class BackendProvider(Protocol):
 
     async def get_block(self, hash_or_number: str) -> Any: ...
 
+    async def get_block_transactions(
+        self,
+        hash_or_number: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any: ...
+
     async def get_address_info(self, address: str) -> Any: ...
 
     async def get_address_utxos(
@@ -68,6 +77,15 @@ class BackendProvider(Protocol):
     async def get_account_history(self, stake_address: str) -> Any: ...
 
     async def get_account_addresses(self, stake_address: str) -> Any: ...
+
+    async def get_account_transactions(
+        self,
+        stake_address: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any: ...
 
     async def get_pools(
         self,
@@ -126,6 +144,23 @@ class BackendProvider(Protocol):
     async def get_script(self, script_hash: str) -> Any: ...
 
     async def get_datum(self, datum_hash: str) -> Any: ...
+
+    async def get_metadata_labels(
+        self,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any: ...
+
+    async def get_metadata_by_label(
+        self,
+        label: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any: ...
 
     async def get_asset(self, asset: str) -> Any: ...
 

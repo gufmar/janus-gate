@@ -6,22 +6,25 @@ This is not a 1:1 reverse proxy. Paths, HTTP methods, field names, and shapes ar
 
 ## Status
 
-Proof of concept covering catalog **band 1 (Likely)** and **band 2 (Partial but doable)**. Covered endpoints:
+Proof of concept covering catalog **band 1 (Likely)**, **band 2 (Partial)**, and **band 2.5** (block/account txs + metadata labels). Covered endpoints:
 
 | Concept | Blockfrost face | Koios face |
 | --- | --- | --- |
 | Network tip / latest block | `GET /blocks/latest` | `GET /tip` |
 | Block by hash/height | `GET /blocks/{hash_or_number}` | `POST /block_info` |
+| Block transactions | `GET /blocks/{id}/txs`, `/blocks/latest/txs` | `POST /block_txs` |
 | Genesis | `GET /genesis` | `GET /genesis` |
 | Epoch info | `GET /epochs/latest`, `/epochs/{number}` | `GET /epoch_info` |
 | Epoch parameters | `GET /epochs/.../parameters` | `GET /epoch_params` |
 | Epoch blocks | `GET /epochs/{number}/blocks` | `GET /blocks?epoch_no=eq.N` |
 | Transaction | `GET /txs/{hash}` (+ utxos/metadata/cbor) | `POST /tx_info` (+ utxos/metadata/cbor) |
+| Metadata labels | `GET /metadata/txs/labels`, `/labels/{label}` | `GET /tx_metalabels`, `/tx_by_metalabel` |
 | Address info | `GET /addresses/{address}` | `POST /address_info` |
 | Address UTxOs | `GET /addresses/{address}/utxos` | `POST /address_utxos` |
 | Address transactions | `GET /addresses/{address}/transactions` | `POST /address_txs` |
 | Account info | `GET /accounts/{stake_address}` | `POST /account_info` |
 | Account rewards / history / addresses / delegations | `GET /accounts/.../rewards` (+ history, addresses, delegations) | `POST /account_rewards` (+ history, addresses) |
+| Account transactions | `GET /accounts/{stake}/transactions` | `GET /account_txs` |
 | Pools | `GET /pools`, `/pools/extended`, `/pools/{id}` | `GET /pool_list`, `POST /pool_info` |
 | Pool history / metadata / delegators / relays | `GET /pools/{id}/history` (+ metadata, delegators, relays) | `GET /pool_history`, `POST /pool_metadata`, `GET /pool_delegators`, `GET /pool_relays` |
 | Asset info | `GET /assets/{asset}` | `POST /asset_info` |

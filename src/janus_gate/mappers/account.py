@@ -207,3 +207,37 @@ def blockfrost_account_delegations_to_koios(
                 }
             )
     return [{"stake_address": stake_address, "history": history}]
+
+
+def koios_account_txs_to_blockfrost(
+    rows: Any, stake_address: str
+) -> list[dict[str, Any]]:
+    """Partial: Koios has no payment address / tx_index; use stake as address Gap."""
+    if not isinstance(rows, list):
+        raise ValueError("Unexpected Koios account_txs payload")
+    return [
+        {
+            "address": stake_address,
+            "tx_hash": row.get("tx_hash"),
+            "tx_index": 0,
+            "block_height": row.get("block_height"),
+            "block_time": row.get("block_time"),
+        }
+        for row in rows
+        if isinstance(row, dict)
+    ]
+
+
+def blockfrost_account_txs_to_koios(rows: Any) -> list[dict[str, Any]]:
+    if not isinstance(rows, list):
+        raise ValueError("Unexpected Blockfrost account transactions payload")
+    return [
+        {
+            "tx_hash": row.get("tx_hash"),
+            "epoch_no": None,
+            "block_height": row.get("block_height"),
+            "block_time": row.get("block_time"),
+        }
+        for row in rows
+        if isinstance(row, dict)
+    ]

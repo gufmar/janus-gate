@@ -84,6 +84,48 @@ class KoiosProvider(HttpProvider):
             return rows[0]
         return None
 
+    async def _resolve_block_hash(self, hash_or_number: str) -> str:
+        if not hash_or_number.isdigit():
+            return hash_or_number
+        rows = await self.request(
+            "GET",
+            "/blocks",
+            params={"block_height": f"eq.{hash_or_number}", "limit": 1},
+        )
+        if not isinstance(rows, list) or not rows:
+            from janus_gate.providers.base import ProviderError
+
+            raise ProviderError(
+                404,
+                {
+                    "status_code": 404,
+                    "error": "Not Found",
+                    "message": "Block not found",
+                },
+            )
+        return rows[0]["hash"]
+
+    async def get_block_transactions(
+        self,
+        hash_or_number: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        block_hash = await self._resolve_block_hash(hash_or_number)
+        rows = await self.request(
+            "POST",
+            "/block_txs",
+            json={"_block_hashes": [block_hash]},
+        )
+        # Koios returns the full set; apply BF-style page/order client-side.
+        if not isinstance(rows, list):
+            return rows
+        ordered = rows if order != "desc" else list(reversed(rows))
+        start = max(page - 1, 0) * max(count, 1)
+        return ordered[start : start + max(count, 1)]
+
     async def get_address_info(self, address: str) -> Any:
         return await self.request(
             "POST",
@@ -185,6 +227,25 @@ class KoiosProvider(HttpProvider):
             "POST",
             "/account_addresses",
             json={"_stake_addresses": [stake_address]},
+        )
+
+    async def get_account_transactions(
+        self,
+        stake_address: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        return await self.request(
+            "GET",
+            "/account_txs",
+            params={
+                "_stake_address": stake_address,
+                "limit": count,
+                "offset": page_to_offset(page, count),
+                "order": f"block_height.{'desc' if order == 'desc' else 'asc'}",
+            },
         )
 
     async def get_pools(self, *, count: int = 100, page: int = 1) -> Any:
@@ -318,6 +379,42 @@ class KoiosProvider(HttpProvider):
             "POST",
             "/datum_info",
             json={"_datum_hashes": [datum_hash]},
+        )
+
+    async def get_metadata_labels(
+        self,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        return await self.request(
+            "GET",
+            "/tx_metalabels",
+            params={
+                "limit": count,
+                "offset": page_to_offset(page, count),
+                "order": f"key.{'desc' if order == 'desc' else 'asc'}",
+            },
+        )
+
+    async def get_metadata_by_label(
+        self,
+        label: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        return await self.request(
+            "GET",
+            "/tx_by_metalabel",
+            params={
+                "_label": label,
+                "limit": count,
+                "offset": page_to_offset(page, count),
+                "order": f"block_height.{'desc' if order == 'desc' else 'asc'}",
+            },
         )
 
     async def get_asset(self, asset: str) -> Any:

@@ -16,11 +16,13 @@ from janus_gate.mappers.registry import (
     fetch_account_as,
     fetch_account_history_as,
     fetch_account_rewards_as,
+    fetch_account_transactions_as,
     fetch_address_as,
     fetch_address_transactions_as,
     fetch_address_utxos_as,
     fetch_asset_as,
     fetch_block_as,
+    fetch_block_transactions_as,
     fetch_committee_as,
     fetch_datum_as,
     fetch_drep_as,
@@ -29,6 +31,8 @@ from janus_gate.mappers.registry import (
     fetch_epoch_blocks_as,
     fetch_epoch_parameters_as,
     fetch_genesis_as,
+    fetch_metadata_by_label_as,
+    fetch_metadata_labels_as,
     fetch_pool_as,
     fetch_pool_delegators_as,
     fetch_pool_history_as,
@@ -170,6 +174,28 @@ def build_koios_router() -> APIRouter:
             )
         )
 
+    @router.post("/block_txs")
+    async def block_txs(
+        body: BlockInfoRequest,
+        request: Request,
+        limit: int = Query(default=100, ge=1, le=1000),
+        offset: int = Query(default=0, ge=0),
+        order: str = Query(default="asc"),
+    ) -> Any:
+        if not body.block_hashes:
+            raise BadRequestError("_block_hashes must not be empty")
+        count, page, bf_order = _koios_page(limit, offset, order)
+        return await run_upstream(
+            fetch_block_transactions_as(
+                ProviderName.KOIOS,
+                request.app.state.backend,
+                body.block_hashes[0],
+                count=count,
+                page=page,
+                order=bf_order,
+            )
+        )
+
     @router.post("/tx_info")
     async def tx_info(body: TxHashesRequest, request: Request) -> Any:
         tx_hash = _first(body.tx_hashes, "_tx_hashes")
@@ -198,6 +224,44 @@ def build_koios_router() -> APIRouter:
         tx_hash = _first(body.tx_hashes, "_tx_hashes")
         return await run_upstream(
             fetch_tx_cbor_as(ProviderName.KOIOS, request.app.state.backend, tx_hash)
+        )
+
+    @router.get("/tx_metalabels")
+    async def tx_metalabels(
+        request: Request,
+        limit: int = Query(default=100, ge=1, le=1000),
+        offset: int = Query(default=0, ge=0),
+        order: str = Query(default="key.asc"),
+    ) -> Any:
+        count, page, bf_order = _koios_page(limit, offset, order)
+        return await run_upstream(
+            fetch_metadata_labels_as(
+                ProviderName.KOIOS,
+                request.app.state.backend,
+                count=count,
+                page=page,
+                order=bf_order,
+            )
+        )
+
+    @router.get("/tx_by_metalabel")
+    async def tx_by_metalabel(
+        request: Request,
+        _label: str = Query(...),
+        limit: int = Query(default=100, ge=1, le=1000),
+        offset: int = Query(default=0, ge=0),
+        order: str = Query(default="block_height.asc"),
+    ) -> Any:
+        count, page, bf_order = _koios_page(limit, offset, order)
+        return await run_upstream(
+            fetch_metadata_by_label_as(
+                ProviderName.KOIOS,
+                request.app.state.backend,
+                _label,
+                count=count,
+                page=page,
+                order=bf_order,
+            )
         )
 
     @router.post("/address_info")
@@ -282,6 +346,26 @@ def build_koios_router() -> APIRouter:
         return await run_upstream(
             fetch_account_addresses_as(
                 ProviderName.KOIOS, request.app.state.backend, stake
+            )
+        )
+
+    @router.get("/account_txs")
+    async def account_txs(
+        request: Request,
+        _stake_address: str = Query(...),
+        limit: int = Query(default=100, ge=1, le=1000),
+        offset: int = Query(default=0, ge=0),
+        order: str = Query(default="block_height.asc"),
+    ) -> Any:
+        count, page, bf_order = _koios_page(limit, offset, order)
+        return await run_upstream(
+            fetch_account_transactions_as(
+                ProviderName.KOIOS,
+                request.app.state.backend,
+                _stake_address,
+                count=count,
+                page=page,
+                order=bf_order,
             )
         )
 

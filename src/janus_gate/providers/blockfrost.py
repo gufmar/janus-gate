@@ -41,6 +41,20 @@ class BlockfrostProvider(HttpProvider):
     async def get_block(self, hash_or_number: str) -> Any:
         return await self.request("GET", f"/blocks/{hash_or_number}")
 
+    async def get_block_transactions(
+        self,
+        hash_or_number: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        return await self.request(
+            "GET",
+            f"/blocks/{hash_or_number}/txs",
+            params={"count": count, "page": page, "order": order},
+        )
+
     async def get_address_info(self, address: str) -> Any:
         return await self.request("GET", f"/addresses/{address}")
 
@@ -103,6 +117,20 @@ class BlockfrostProvider(HttpProvider):
 
     async def get_account_addresses(self, stake_address: str) -> Any:
         return await self.request("GET", f"/accounts/{stake_address}/addresses")
+
+    async def get_account_transactions(
+        self,
+        stake_address: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        return await self.request(
+            "GET",
+            f"/accounts/{stake_address}/transactions",
+            params={"count": count, "page": page, "order": order},
+        )
 
     async def get_pools(self, *, count: int = 100, page: int = 1) -> Any:
         return await self.request(
@@ -185,6 +213,33 @@ class BlockfrostProvider(HttpProvider):
 
     async def get_datum(self, datum_hash: str) -> Any:
         return await self.request("GET", f"/scripts/datum/{datum_hash}")
+
+    async def get_metadata_labels(
+        self,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        return await self.request(
+            "GET",
+            "/metadata/txs/labels",
+            params={"count": count, "page": page, "order": order},
+        )
+
+    async def get_metadata_by_label(
+        self,
+        label: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        return await self.request(
+            "GET",
+            f"/metadata/txs/labels/{label}",
+            params={"count": count, "page": page, "order": order},
+        )
 
     async def get_asset(self, asset: str) -> Any:
         return await self.request("GET", f"/assets/{asset}")
