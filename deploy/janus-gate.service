@@ -1,0 +1,19 @@
+[Unit]
+Description=Janus Gate Cardano API compatibility gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=janus
+Group=janus
+WorkingDirectory=/opt/janus-gate
+EnvironmentFile=-/opt/janus-gate/.env
+ExecStart=/usr/bin/env uv run janus-gate serve --config /opt/janus-gate/config.yaml
+Restart=on-failure
+RestartSec=5
+# Bind to localhost when nginx proxies; override via config/env if needed.
+# No TLS here: terminate HTTPS at nginx (or another reverse proxy).
+
+[Install]
+WantedBy=multi-user.target

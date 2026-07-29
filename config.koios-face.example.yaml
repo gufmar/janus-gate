@@ -1,0 +1,11 @@
+# Example: Koios public face backed by Blockfrost
+server:
+  host: 0.0.0.0
+  port: 8080
+
+public_face: koios
+
+backend:
+  provider: blockfrost
+  base_url: https://cardano-mainnet.blockfrost.io/api/v0
+  # Requires JANUS_BACKEND_API_KEY (Blockfrost project_id)

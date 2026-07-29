@@ -147,10 +147,16 @@ activemq-data/
 # SageMath parsed files
 *.sage.py
 
-# Environments
+# Local Janus Gate config (keep secrets out of git)
+config.yaml
 .env
 .envrc
 .venv
+
+# Regenerated OpenAPI snapshots / dumps (optional local artifacts)
+scripts/_bf_openapi.yaml
+scripts/_ko_openapi.yaml
+docs/api-comparison/_endpoint_dump.txt
 env/
 venv/
 ENV/

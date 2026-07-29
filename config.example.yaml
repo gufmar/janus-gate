@@ -1,0 +1,14 @@
+# Janus Gate server (plain HTTP; terminate TLS at nginx)
+server:
+  host: 0.0.0.0
+  port: 8080
+
+# Public API surface clients talk to: blockfrost | koios
+public_face: blockfrost
+
+backend:
+  # Upstream data source: must differ from public_face
+  provider: koios
+  base_url: https://api.koios.rest/api/v1
+  # Prefer JANUS_BACKEND_API_KEY in the environment instead of storing secrets here.
+  # api_key: ""
