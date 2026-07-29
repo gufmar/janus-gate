@@ -55,3 +55,155 @@ def blockfrost_account_to_koios(payload: dict[str, Any]) -> list[dict[str, Any]]
             "proposal_refund": "0",
         }
     ]
+
+
+def _paginate(
+    items: list[Any],
+    *,
+    count: int,
+    page: int,
+    order: str,
+) -> list[Any]:
+    ordered = items if order != "desc" else list(reversed(items))
+    start = max(page - 1, 0) * max(count, 1)
+    return ordered[start : start + max(count, 1)]
+
+
+def koios_account_rewards_to_blockfrost(
+    rows: Any,
+    *,
+    count: int = 100,
+    page: int = 1,
+    order: str = "asc",
+) -> list[dict[str, Any]]:
+    if not isinstance(rows, list) or not rows:
+        return []
+    rewards = first_row(rows, "account_rewards").get("rewards") or []
+    mapped = [
+        {
+            "epoch": item.get("earned_epoch"),
+            "amount": str(item.get("amount") or "0"),
+            "pool_id": item.get("pool_id"),
+            "type": item.get("type") or "member",
+        }
+        for item in rewards
+        if isinstance(item, dict)
+    ]
+    return _paginate(mapped, count=count, page=page, order=order)
+
+
+def blockfrost_account_rewards_to_koios(
+    rows: Any, stake_address: str
+) -> list[dict[str, Any]]:
+    rewards = []
+    if isinstance(rows, list):
+        for item in rows:
+            rewards.append(
+                {
+                    "type": item.get("type") or "member",
+                    "amount": item.get("amount"),
+                    "pool_id": item.get("pool_id"),
+                    "earned_epoch": item.get("epoch"),
+                    "spendable_epoch": None,
+                }
+            )
+    return [{"stake_address": stake_address, "rewards": rewards}]
+
+
+def koios_account_history_to_blockfrost(
+    rows: Any,
+    *,
+    count: int = 100,
+    page: int = 1,
+    order: str = "asc",
+) -> list[dict[str, Any]]:
+    if not isinstance(rows, list) or not rows:
+        return []
+    history = first_row(rows, "account_history").get("history") or []
+    mapped = [
+        {
+            "active_epoch": item.get("epoch_no"),
+            "amount": str(item.get("active_stake") or "0"),
+            "pool_id": item.get("pool_id"),
+        }
+        for item in history
+        if isinstance(item, dict)
+    ]
+    return _paginate(mapped, count=count, page=page, order=order)
+
+
+def blockfrost_account_history_to_koios(
+    rows: Any, stake_address: str
+) -> list[dict[str, Any]]:
+    history = []
+    if isinstance(rows, list):
+        for item in rows:
+            history.append(
+                {
+                    "pool_id": item.get("pool_id"),
+                    "epoch_no": item.get("active_epoch"),
+                    "active_stake": item.get("amount"),
+                }
+            )
+    return [{"stake_address": stake_address, "history": history}]
+
+
+def koios_account_addresses_to_blockfrost(rows: Any) -> list[str]:
+    if not isinstance(rows, list) or not rows:
+        return []
+    addresses = first_row(rows, "account_addresses").get("addresses") or []
+    return [a for a in addresses if isinstance(a, str)]
+
+
+def blockfrost_account_addresses_to_koios(
+    rows: Any, stake_address: str
+) -> list[dict[str, Any]]:
+    addresses = rows if isinstance(rows, list) else []
+    return [{"stake_address": stake_address, "addresses": addresses}]
+
+
+def koios_account_delegations_to_blockfrost(
+    rows: Any,
+    *,
+    count: int = 100,
+    page: int = 1,
+    order: str = "asc",
+) -> list[dict[str, Any]]:
+    """Derive Partial BF delegations from Koios account history pool changes."""
+    if not isinstance(rows, list) or not rows:
+        return []
+    history = first_row(rows, "account_history").get("history") or []
+    mapped: list[dict[str, Any]] = []
+    prev_pool: Any = object()
+    for item in history:
+        if not isinstance(item, dict):
+            continue
+        pool_id = item.get("pool_id")
+        if pool_id == prev_pool:
+            continue
+        prev_pool = pool_id
+        mapped.append(
+            {
+                "active_epoch": item.get("epoch_no"),
+                "tx_hash": None,
+                "amount": str(item.get("active_stake") or "0"),
+                "pool_id": pool_id,
+            }
+        )
+    return _paginate(mapped, count=count, page=page, order=order)
+
+
+def blockfrost_account_delegations_to_koios(
+    rows: Any, stake_address: str
+) -> list[dict[str, Any]]:
+    history = []
+    if isinstance(rows, list):
+        for item in rows:
+            history.append(
+                {
+                    "pool_id": item.get("pool_id"),
+                    "epoch_no": item.get("active_epoch"),
+                    "active_stake": item.get("amount"),
+                }
+            )
+    return [{"stake_address": stake_address, "history": history}]

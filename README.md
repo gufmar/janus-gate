@@ -6,7 +6,7 @@ This is not a 1:1 reverse proxy. Paths, HTTP methods, field names, and shapes ar
 
 ## Status
 
-Proof of concept expanding the catalog **Likely** band. Covered endpoints:
+Proof of concept covering catalog **band 1 (Likely)** and **band 2 (Partial but doable)**. Covered endpoints:
 
 | Concept | Blockfrost face | Koios face |
 | --- | --- | --- |
@@ -15,13 +15,18 @@ Proof of concept expanding the catalog **Likely** band. Covered endpoints:
 | Genesis | `GET /genesis` | `GET /genesis` |
 | Epoch info | `GET /epochs/latest`, `/epochs/{number}` | `GET /epoch_info` |
 | Epoch parameters | `GET /epochs/.../parameters` | `GET /epoch_params` |
+| Epoch blocks | `GET /epochs/{number}/blocks` | `GET /blocks?epoch_no=eq.N` |
 | Transaction | `GET /txs/{hash}` (+ utxos/metadata/cbor) | `POST /tx_info` (+ utxos/metadata/cbor) |
 | Address info | `GET /addresses/{address}` | `POST /address_info` |
 | Address UTxOs | `GET /addresses/{address}/utxos` | `POST /address_utxos` |
 | Address transactions | `GET /addresses/{address}/transactions` | `POST /address_txs` |
 | Account info | `GET /accounts/{stake_address}` | `POST /account_info` |
+| Account rewards / history / addresses / delegations | `GET /accounts/.../rewards` (+ history, addresses, delegations) | `POST /account_rewards` (+ history, addresses) |
 | Pools | `GET /pools`, `/pools/extended`, `/pools/{id}` | `GET /pool_list`, `POST /pool_info` |
+| Pool history / metadata / delegators / relays | `GET /pools/{id}/history` (+ metadata, delegators, relays) | `GET /pool_history`, `POST /pool_metadata`, `GET /pool_delegators`, `GET /pool_relays` |
 | Asset info | `GET /assets/{asset}` | `POST /asset_info` |
+| Scripts / datums | `GET /scripts/{hash}`, `/scripts/datum/{hash}` | `POST /script_info`, `POST /datum_info` |
+| Governance basics | `GET /governance/committee`, `/dreps`, `/dreps/{id}`, `/proposals` | `GET /committee_info`, `/drep_list`, `POST /drep_info`, `GET /proposal_list` |
 | Submit transaction | `POST /tx/submit` | `POST /submittx` |
 
 Plus Janus-native `GET /health` for probes and `GET /endpoints` for an HTML coverage overview (implemented routes are linked).
@@ -54,53 +59,7 @@ The installer places `uv` in `~/.local/bin` by default. Make sure that directory
 uv --version
 ```
 
-### PATH on Debian (bash)
-
-`PATH` is not usually set in one global file for your user tools. On a typical Debian bash setup:
-
-| File | When it runs |
-| --- | --- |
-| `~/.profile` | Login shells (common for SSH sessions). Debian’s default here already prepends `~/.local/bin` and `~/bin` when those dirs exist. |
-| `~/.bashrc` | Interactive non-login bash shells (new terminal tabs, `bash` without login). Often sourced from `~/.profile` when bash is the login shell. |
-| `/etc/environment` or `/etc/profile` | System-wide; prefer user files for `uv`. |
-
-If `uv` is installed but `uv: command not found`, check which shell file is active and that `~/.local/bin` is included.
-
-**Option A – rely on Debian’s default `~/.profile` (recommended)**
-
-Confirm these lines exist (stock Debian images usually already have them):
-
-```bash
-# set PATH so it includes user's private bin if it exists
-if [ -d "$HOME/.local/bin" ] ; then
-    PATH="$HOME/.local/bin:$PATH"
-fi
-```
-
-Then either open a new SSH login session, or reload:
-
-```bash
-source ~/.profile
-```
-
-**Option B – also add it in `~/.bashrc` (handy for non-login interactive shells)**
-
-```bash
-# ~/.bashrc
-export PATH="$HOME/.local/bin:$PATH"
-```
-
-Reload with `source ~/.bashrc`, or open a new shell.
-
-**Quick checks**
-
-```bash
-echo "$PATH"
-which uv
-ls -l "$HOME/.local/bin/uv"
-```
-
-**systemd note:** service units do not load `~/.profile` or `~/.bashrc`. Prefer a full path in `ExecStart` (for example `/home/<user>/.local/bin/uv run ...`) or set `Environment=PATH=...` / an `EnvironmentFile` in the unit. See [deploy/janus-gate.service](deploy/janus-gate.service).
+If `uv` is missing from the shell or systemd cannot find it, see [docs/uv-path.md](docs/uv-path.md).
 
 ## Quickstart
 

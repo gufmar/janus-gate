@@ -141,3 +141,23 @@ def blockfrost_epoch_params_to_koios(payload: dict[str, Any]) -> list[dict[str, 
             "era": None,
         }
     ]
+
+
+def koios_epoch_blocks_to_blockfrost(rows: Any) -> list[str]:
+    if not isinstance(rows, list):
+        raise ValueError("Unexpected Koios blocks payload")
+    return [
+        row.get("hash")
+        for row in rows
+        if isinstance(row, dict) and row.get("hash")
+    ]
+
+
+def blockfrost_epoch_blocks_to_koios(rows: Any, epoch_no: int) -> list[dict[str, Any]]:
+    if not isinstance(rows, list):
+        raise ValueError("Unexpected Blockfrost epoch blocks payload")
+    return [
+        {"hash": block_hash, "epoch_no": epoch_no}
+        for block_hash in rows
+        if isinstance(block_hash, str)
+    ]

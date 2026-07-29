@@ -159,6 +159,27 @@ class KoiosProvider(HttpProvider):
             json={"_stake_addresses": [stake_address]},
         )
 
+    async def get_account_rewards(self, stake_address: str) -> Any:
+        return await self.request(
+            "POST",
+            "/account_rewards",
+            json={"_stake_addresses": [stake_address]},
+        )
+
+    async def get_account_history(self, stake_address: str) -> Any:
+        return await self.request(
+            "POST",
+            "/account_history",
+            json={"_stake_addresses": [stake_address]},
+        )
+
+    async def get_account_addresses(self, stake_address: str) -> Any:
+        return await self.request(
+            "POST",
+            "/account_addresses",
+            json={"_stake_addresses": [stake_address]},
+        )
+
     async def get_pools(self, *, count: int = 100, page: int = 1) -> Any:
         return await self.request(
             "GET",
@@ -174,6 +195,122 @@ class KoiosProvider(HttpProvider):
             "POST",
             "/pool_info",
             json={"_pool_bech32_ids": [pool_id]},
+        )
+
+    async def get_pool_history(
+        self,
+        pool_id: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        params: dict[str, Any] = {
+            "_pool_bech32": pool_id,
+            "limit": count,
+            "offset": page_to_offset(page, count),
+            "order": f"epoch_no.{'desc' if order == 'desc' else 'asc'}",
+        }
+        return await self.request("GET", "/pool_history", params=params)
+
+    async def get_pool_metadata(self, pool_id: str) -> Any:
+        return await self.request(
+            "POST",
+            "/pool_metadata",
+            json={"_pool_bech32_ids": [pool_id]},
+        )
+
+    async def get_pool_delegators(
+        self,
+        pool_id: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+    ) -> Any:
+        return await self.request(
+            "GET",
+            "/pool_delegators",
+            params={
+                "_pool_bech32": pool_id,
+                "limit": count,
+                "offset": page_to_offset(page, count),
+            },
+        )
+
+    async def get_pool_relays(self, pool_id: str) -> Any:
+        rows = await self.request(
+            "GET",
+            "/pool_relays",
+            params={"pool_id_bech32": f"eq.{pool_id}"},
+        )
+        if isinstance(rows, list) and rows:
+            return rows
+        # Fallback: relays are also present on pool_info.
+        info = await self.get_pool(pool_id)
+        if isinstance(info, list) and info and isinstance(info[0], dict):
+            return [
+                {
+                    "pool_id_bech32": info[0].get("pool_id_bech32") or pool_id,
+                    "relays": info[0].get("relays") or [],
+                }
+            ]
+        return []
+
+    async def get_epoch_blocks(
+        self,
+        number: int,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        return await self.request(
+            "GET",
+            "/blocks",
+            params={
+                "epoch_no": f"eq.{number}",
+                "limit": count,
+                "offset": page_to_offset(page, count),
+                "order": f"block_height.{'desc' if order == 'desc' else 'asc'}",
+            },
+        )
+
+    async def get_committee(self) -> Any:
+        return await self.request("GET", "/committee_info")
+
+    async def get_dreps(self, *, count: int = 100, page: int = 1) -> Any:
+        return await self.request(
+            "GET",
+            "/drep_list",
+            params={"limit": count, "offset": page_to_offset(page, count)},
+        )
+
+    async def get_drep(self, drep_id: str) -> Any:
+        return await self.request(
+            "POST",
+            "/drep_info",
+            json={"_drep_ids": [drep_id]},
+        )
+
+    async def get_proposals(self, *, count: int = 100, page: int = 1) -> Any:
+        return await self.request(
+            "GET",
+            "/proposal_list",
+            params={"limit": count, "offset": page_to_offset(page, count)},
+        )
+
+    async def get_script(self, script_hash: str) -> Any:
+        return await self.request(
+            "POST",
+            "/script_info",
+            json={"_script_hashes": [script_hash]},
+        )
+
+    async def get_datum(self, datum_hash: str) -> Any:
+        return await self.request(
+            "POST",
+            "/datum_info",
+            json={"_datum_hashes": [datum_hash]},
         )
 
     async def get_asset(self, asset: str) -> Any:

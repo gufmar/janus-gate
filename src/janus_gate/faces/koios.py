@@ -11,17 +11,31 @@ from pydantic import BaseModel, Field
 from janus_gate.config import ProviderName
 from janus_gate.faces.common import run_upstream
 from janus_gate.mappers.registry import (
+    fetch_account_addresses_as,
     fetch_account_as,
+    fetch_account_history_as,
+    fetch_account_rewards_as,
     fetch_address_as,
     fetch_address_transactions_as,
     fetch_address_utxos_as,
     fetch_asset_as,
     fetch_block_as,
+    fetch_committee_as,
+    fetch_datum_as,
+    fetch_drep_as,
+    fetch_dreps_as,
     fetch_epoch_as,
+    fetch_epoch_blocks_as,
     fetch_epoch_parameters_as,
     fetch_genesis_as,
     fetch_pool_as,
+    fetch_pool_delegators_as,
+    fetch_pool_history_as,
+    fetch_pool_metadata_as,
+    fetch_pool_relays_as,
     fetch_pools_as,
+    fetch_proposals_as,
+    fetch_script_as,
     fetch_tip_as,
     fetch_tx_as,
     fetch_tx_cbor_as,
@@ -66,6 +80,21 @@ class AssetListRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class DrepIdsRequest(BaseModel):
+    drep_ids: list[str] = Field(alias="_drep_ids")
+    model_config = {"populate_by_name": True}
+
+
+class ScriptHashesRequest(BaseModel):
+    script_hashes: list[str] = Field(alias="_script_hashes")
+    model_config = {"populate_by_name": True}
+
+
+class DatumHashesRequest(BaseModel):
+    datum_hashes: list[str] = Field(alias="_datum_hashes")
+    model_config = {"populate_by_name": True}
+
+
 def build_koios_router() -> APIRouter:
     router = APIRouter(tags=["koios-face"])
 
@@ -100,6 +129,32 @@ def build_koios_router() -> APIRouter:
         return await run_upstream(
             fetch_epoch_parameters_as(
                 ProviderName.KOIOS, request.app.state.backend, _parse_eq_int(epoch_no)
+            )
+        )
+
+    @router.get("/blocks")
+    async def blocks(
+        request: Request,
+        epoch_no: str | None = Query(default=None),
+        limit: int = Query(default=100, ge=1, le=1000),
+        offset: int = Query(default=0, ge=0),
+        order: str = Query(default="block_height.asc"),
+    ) -> Any:
+        number = _parse_eq_int(epoch_no)
+        if number is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Janus PoC requires epoch_no=eq.N for GET /blocks",
+            )
+        count, page, bf_order = _koios_page(limit, offset, order)
+        return await run_upstream(
+            fetch_epoch_blocks_as(
+                ProviderName.KOIOS,
+                request.app.state.backend,
+                number,
+                count=count,
+                page=page,
+                order=bf_order,
             )
         )
 
@@ -203,6 +258,33 @@ def build_koios_router() -> APIRouter:
             fetch_account_as(ProviderName.KOIOS, request.app.state.backend, stake)
         )
 
+    @router.post("/account_rewards")
+    async def account_rewards(body: StakeAddressesRequest, request: Request) -> Any:
+        stake = _first(body.stake_addresses, "_stake_addresses")
+        return await run_upstream(
+            fetch_account_rewards_as(
+                ProviderName.KOIOS, request.app.state.backend, stake
+            )
+        )
+
+    @router.post("/account_history")
+    async def account_history(body: StakeAddressesRequest, request: Request) -> Any:
+        stake = _first(body.stake_addresses, "_stake_addresses")
+        return await run_upstream(
+            fetch_account_history_as(
+                ProviderName.KOIOS, request.app.state.backend, stake
+            )
+        )
+
+    @router.post("/account_addresses")
+    async def account_addresses(body: StakeAddressesRequest, request: Request) -> Any:
+        stake = _first(body.stake_addresses, "_stake_addresses")
+        return await run_upstream(
+            fetch_account_addresses_as(
+                ProviderName.KOIOS, request.app.state.backend, stake
+            )
+        )
+
     @router.get("/pool_list")
     async def pool_list(
         request: Request,
@@ -227,6 +309,77 @@ def build_koios_router() -> APIRouter:
             fetch_pool_as(ProviderName.KOIOS, request.app.state.backend, pool_id)
         )
 
+    @router.get("/pool_history")
+    async def pool_history(
+        request: Request,
+        _pool_bech32: str = Query(...),
+        limit: int = Query(default=100, ge=1, le=1000),
+        offset: int = Query(default=0, ge=0),
+        order: str = Query(default="epoch_no.asc"),
+    ) -> Any:
+        count, page, bf_order = _koios_page(limit, offset, order)
+        return await run_upstream(
+            fetch_pool_history_as(
+                ProviderName.KOIOS,
+                request.app.state.backend,
+                _pool_bech32,
+                count=count,
+                page=page,
+                order=bf_order,
+            )
+        )
+
+    @router.post("/pool_metadata")
+    async def pool_metadata(body: PoolIdsRequest, request: Request) -> Any:
+        pool_id = _first(body.pool_bech32_ids, "_pool_bech32_ids")
+        return await run_upstream(
+            fetch_pool_metadata_as(
+                ProviderName.KOIOS, request.app.state.backend, pool_id
+            )
+        )
+
+    @router.get("/pool_delegators")
+    async def pool_delegators(
+        request: Request,
+        _pool_bech32: str = Query(...),
+        limit: int = Query(default=100, ge=1, le=1000),
+        offset: int = Query(default=0, ge=0),
+    ) -> Any:
+        count, page, _ = _koios_page(limit, offset, "asc")
+        return await run_upstream(
+            fetch_pool_delegators_as(
+                ProviderName.KOIOS,
+                request.app.state.backend,
+                _pool_bech32,
+                count=count,
+                page=page,
+            )
+        )
+
+    @router.get("/pool_relays")
+    async def pool_relays(
+        request: Request,
+        _pool_bech32: str | None = Query(default=None),
+        pool_id_bech32: str | None = Query(default=None),
+    ) -> Any:
+        pool_id = _pool_bech32
+        if pool_id is None and pool_id_bech32:
+            pool_id = (
+                pool_id_bech32[3:]
+                if pool_id_bech32.startswith("eq.")
+                else pool_id_bech32
+            )
+        if not pool_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Janus PoC requires _pool_bech32 for GET /pool_relays",
+            )
+        return await run_upstream(
+            fetch_pool_relays_as(
+                ProviderName.KOIOS, request.app.state.backend, pool_id
+            )
+        )
+
     @router.post("/asset_info")
     async def asset_info(body: AssetListRequest, request: Request) -> Any:
         if not body.asset_list:
@@ -240,6 +393,69 @@ def build_koios_router() -> APIRouter:
             raise HTTPException(status_code=400, detail="Unsupported _asset_list item")
         return await run_upstream(
             fetch_asset_as(ProviderName.KOIOS, request.app.state.backend, asset)
+        )
+
+    @router.get("/committee_info")
+    async def committee_info(request: Request) -> Any:
+        return await run_upstream(
+            fetch_committee_as(ProviderName.KOIOS, request.app.state.backend)
+        )
+
+    @router.get("/drep_list")
+    async def drep_list(
+        request: Request,
+        limit: int = Query(default=100, ge=1, le=1000),
+        offset: int = Query(default=0, ge=0),
+    ) -> Any:
+        count, page, _ = _koios_page(limit, offset, "asc")
+        return await run_upstream(
+            fetch_dreps_as(
+                ProviderName.KOIOS,
+                request.app.state.backend,
+                count=count,
+                page=page,
+            )
+        )
+
+    @router.post("/drep_info")
+    async def drep_info(body: DrepIdsRequest, request: Request) -> Any:
+        drep_id = _first(body.drep_ids, "_drep_ids")
+        return await run_upstream(
+            fetch_drep_as(ProviderName.KOIOS, request.app.state.backend, drep_id)
+        )
+
+    @router.get("/proposal_list")
+    async def proposal_list(
+        request: Request,
+        limit: int = Query(default=100, ge=1, le=1000),
+        offset: int = Query(default=0, ge=0),
+    ) -> Any:
+        count, page, _ = _koios_page(limit, offset, "asc")
+        return await run_upstream(
+            fetch_proposals_as(
+                ProviderName.KOIOS,
+                request.app.state.backend,
+                count=count,
+                page=page,
+            )
+        )
+
+    @router.post("/script_info")
+    async def script_info(body: ScriptHashesRequest, request: Request) -> Any:
+        script_hash = _first(body.script_hashes, "_script_hashes")
+        return await run_upstream(
+            fetch_script_as(
+                ProviderName.KOIOS, request.app.state.backend, script_hash
+            )
+        )
+
+    @router.post("/datum_info")
+    async def datum_info(body: DatumHashesRequest, request: Request) -> Any:
+        datum_hash = _first(body.datum_hashes, "_datum_hashes")
+        return await run_upstream(
+            fetch_datum_as(
+                ProviderName.KOIOS, request.app.state.backend, datum_hash
+            )
         )
 
     @router.post("/submittx")

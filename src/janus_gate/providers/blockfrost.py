@@ -95,6 +95,15 @@ class BlockfrostProvider(HttpProvider):
     async def get_account_info(self, stake_address: str) -> Any:
         return await self.request("GET", f"/accounts/{stake_address}")
 
+    async def get_account_rewards(self, stake_address: str) -> Any:
+        return await self.request("GET", f"/accounts/{stake_address}/rewards")
+
+    async def get_account_history(self, stake_address: str) -> Any:
+        return await self.request("GET", f"/accounts/{stake_address}/history")
+
+    async def get_account_addresses(self, stake_address: str) -> Any:
+        return await self.request("GET", f"/accounts/{stake_address}/addresses")
+
     async def get_pools(self, *, count: int = 100, page: int = 1) -> Any:
         return await self.request(
             "GET", "/pools", params={"count": count, "page": page}
@@ -107,6 +116,75 @@ class BlockfrostProvider(HttpProvider):
 
     async def get_pool(self, pool_id: str) -> Any:
         return await self.request("GET", f"/pools/{pool_id}")
+
+    async def get_pool_history(
+        self,
+        pool_id: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        return await self.request(
+            "GET",
+            f"/pools/{pool_id}/history",
+            params={"count": count, "page": page, "order": order},
+        )
+
+    async def get_pool_metadata(self, pool_id: str) -> Any:
+        return await self.request("GET", f"/pools/{pool_id}/metadata")
+
+    async def get_pool_delegators(
+        self,
+        pool_id: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+    ) -> Any:
+        return await self.request(
+            "GET",
+            f"/pools/{pool_id}/delegators",
+            params={"count": count, "page": page},
+        )
+
+    async def get_pool_relays(self, pool_id: str) -> Any:
+        return await self.request("GET", f"/pools/{pool_id}/relays")
+
+    async def get_epoch_blocks(
+        self,
+        number: int,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        return await self.request(
+            "GET",
+            f"/epochs/{number}/blocks",
+            params={"count": count, "page": page, "order": order},
+        )
+
+    async def get_committee(self) -> Any:
+        return await self.request("GET", "/governance/committee")
+
+    async def get_dreps(self, *, count: int = 100, page: int = 1) -> Any:
+        return await self.request(
+            "GET", "/governance/dreps", params={"count": count, "page": page}
+        )
+
+    async def get_drep(self, drep_id: str) -> Any:
+        return await self.request("GET", f"/governance/dreps/{drep_id}")
+
+    async def get_proposals(self, *, count: int = 100, page: int = 1) -> Any:
+        return await self.request(
+            "GET", "/governance/proposals", params={"count": count, "page": page}
+        )
+
+    async def get_script(self, script_hash: str) -> Any:
+        return await self.request("GET", f"/scripts/{script_hash}")
+
+    async def get_datum(self, datum_hash: str) -> Any:
+        return await self.request("GET", f"/scripts/datum/{datum_hash}")
 
     async def get_asset(self, asset: str) -> Any:
         return await self.request("GET", f"/assets/{asset}")

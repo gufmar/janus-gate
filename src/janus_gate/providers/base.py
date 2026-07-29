@@ -63,6 +63,12 @@ class BackendProvider(Protocol):
 
     async def get_account_info(self, stake_address: str) -> Any: ...
 
+    async def get_account_rewards(self, stake_address: str) -> Any: ...
+
+    async def get_account_history(self, stake_address: str) -> Any: ...
+
+    async def get_account_addresses(self, stake_address: str) -> Any: ...
+
     async def get_pools(
         self,
         *,
@@ -78,6 +84,48 @@ class BackendProvider(Protocol):
     ) -> Any: ...
 
     async def get_pool(self, pool_id: str) -> Any: ...
+
+    async def get_pool_history(
+        self,
+        pool_id: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any: ...
+
+    async def get_pool_metadata(self, pool_id: str) -> Any: ...
+
+    async def get_pool_delegators(
+        self,
+        pool_id: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+    ) -> Any: ...
+
+    async def get_pool_relays(self, pool_id: str) -> Any: ...
+
+    async def get_epoch_blocks(
+        self,
+        number: int,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any: ...
+
+    async def get_committee(self) -> Any: ...
+
+    async def get_dreps(self, *, count: int = 100, page: int = 1) -> Any: ...
+
+    async def get_drep(self, drep_id: str) -> Any: ...
+
+    async def get_proposals(self, *, count: int = 100, page: int = 1) -> Any: ...
+
+    async def get_script(self, script_hash: str) -> Any: ...
+
+    async def get_datum(self, datum_hash: str) -> Any: ...
 
     async def get_asset(self, asset: str) -> Any: ...
 
@@ -100,7 +148,7 @@ class HttpProvider:
         self._client = httpx.AsyncClient(
             base_url=base_url.rstrip("/"),
             headers=headers or {},
-            timeout=httpx.Timeout(30.0),
+            timeout=httpx.Timeout(60.0),
         )
 
     def _auth_headers(self) -> dict[str, str]:
@@ -124,14 +172,19 @@ class HttpProvider:
         merged_headers = self._auth_headers()
         if headers:
             merged_headers.update(headers)
-        response = await self._client.request(
-            method,
-            path,
-            json=json,
-            params=params,
-            content=content,
-            headers=merged_headers or None,
-        )
+        try:
+            response = await self._client.request(
+                method,
+                path,
+                json=json,
+                params=params,
+                content=content,
+                headers=merged_headers or None,
+            )
+        except httpx.TimeoutException as exc:
+            raise ProviderError(
+                504, {"message": "Upstream timeout", "status_code": 504}
+            ) from exc
         if response.status_code >= 400:
             try:
                 detail = response.json()

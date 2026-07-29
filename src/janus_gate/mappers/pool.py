@@ -153,3 +153,152 @@ def _clean_meta_hash(value: Any) -> Any:
     if isinstance(value, str) and value.startswith("\\x"):
         return value[2:]
     return value
+
+
+def koios_pool_history_to_blockfrost(rows: Any) -> list[dict[str, Any]]:
+    if not isinstance(rows, list):
+        raise ValueError("Unexpected Koios pool_history payload")
+    return [
+        {
+            "epoch": row.get("epoch_no"),
+            "blocks": row.get("block_cnt") or 0,
+            "active_stake": (
+                None if row.get("active_stake") is None else str(row.get("active_stake"))
+            ),
+            "active_size": row.get("active_stake_pct"),
+            "delegators_count": row.get("delegator_cnt") or 0,
+            "rewards": (
+                None
+                if row.get("deleg_rewards") is None
+                else str(row.get("deleg_rewards"))
+            ),
+            "fees": None if row.get("pool_fees") is None else str(row.get("pool_fees")),
+        }
+        for row in rows
+        if isinstance(row, dict)
+    ]
+
+
+def blockfrost_pool_history_to_koios(rows: Any) -> list[dict[str, Any]]:
+    if not isinstance(rows, list):
+        raise ValueError("Unexpected Blockfrost pool history payload")
+    return [
+        {
+            "epoch_no": row.get("epoch"),
+            "active_stake": row.get("active_stake"),
+            "active_stake_pct": row.get("active_size"),
+            "saturation_pct": None,
+            "block_cnt": row.get("blocks"),
+            "delegator_cnt": row.get("delegators_count"),
+            "margin": None,
+            "fixed_cost": None,
+            "pool_fees": row.get("fees"),
+            "deleg_rewards": row.get("rewards"),
+            "member_rewards": None,
+            "epoch_ros": None,
+        }
+        for row in rows
+        if isinstance(row, dict)
+    ]
+
+
+def koios_pool_metadata_to_blockfrost(rows: Any, pool_id: str) -> dict[str, Any] | None:
+    if not isinstance(rows, list) or not rows:
+        return None
+    row = first_row(rows, "pool_metadata")
+    meta = row.get("meta_json") if isinstance(row.get("meta_json"), dict) else {}
+    return {
+        "pool_id": row.get("pool_id_bech32") or pool_id,
+        "hex": None,
+        "url": row.get("meta_url"),
+        "hash": _clean_meta_hash(row.get("meta_hash")),
+        "ticker": meta.get("ticker"),
+        "name": meta.get("name"),
+        "description": meta.get("description"),
+        "homepage": meta.get("homepage"),
+    }
+
+
+def blockfrost_pool_metadata_to_koios(payload: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if not payload:
+        return []
+    return [
+        {
+            "pool_id_bech32": payload.get("pool_id"),
+            "meta_url": payload.get("url"),
+            "meta_hash": payload.get("hash"),
+            "meta_json": {
+                "name": payload.get("name"),
+                "ticker": payload.get("ticker"),
+                "homepage": payload.get("homepage"),
+                "description": payload.get("description"),
+            },
+        }
+    ]
+
+
+def koios_pool_delegators_to_blockfrost(rows: Any) -> list[dict[str, Any]]:
+    if not isinstance(rows, list):
+        raise ValueError("Unexpected Koios pool_delegators payload")
+    return [
+        {
+            "address": row.get("stake_address"),
+            "live_stake": None if row.get("amount") is None else str(row.get("amount")),
+        }
+        for row in rows
+        if isinstance(row, dict)
+    ]
+
+
+def blockfrost_pool_delegators_to_koios(rows: Any) -> list[dict[str, Any]]:
+    if not isinstance(rows, list):
+        raise ValueError("Unexpected Blockfrost pool delegators payload")
+    return [
+        {
+            "stake_address": row.get("address"),
+            "amount": row.get("live_stake"),
+            "active_epoch_no": None,
+            "latest_delegation_tx_hash": None,
+        }
+        for row in rows
+        if isinstance(row, dict)
+    ]
+
+
+def koios_pool_relays_to_blockfrost(rows: Any) -> list[dict[str, Any]]:
+    if not isinstance(rows, list) or not rows:
+        return []
+    row = first_row(rows, "pool_relays")
+    relays = row.get("relays") or []
+    mapped: list[dict[str, Any]] = []
+    for relay in relays:
+        if not isinstance(relay, dict):
+            continue
+        mapped.append(
+            {
+                "ipv4": relay.get("ipv4"),
+                "ipv6": relay.get("ipv6"),
+                "dns": relay.get("dns"),
+                "dns_srv": relay.get("srv"),
+                "port": relay.get("port"),
+            }
+        )
+    return mapped
+
+
+def blockfrost_pool_relays_to_koios(
+    rows: Any, pool_id: str
+) -> list[dict[str, Any]]:
+    relays = []
+    if isinstance(rows, list):
+        for relay in rows:
+            relays.append(
+                {
+                    "dns": relay.get("dns"),
+                    "srv": relay.get("dns_srv"),
+                    "ipv4": relay.get("ipv4"),
+                    "ipv6": relay.get("ipv6"),
+                    "port": relay.get("port"),
+                }
+            )
+    return [{"pool_id_bech32": pool_id, "relays": relays}]
