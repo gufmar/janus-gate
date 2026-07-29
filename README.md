@@ -15,9 +15,13 @@ Proof of concept expanding the catalog **Likely** band. Covered endpoints:
 | Genesis | `GET /genesis` | `GET /genesis` |
 | Epoch info | `GET /epochs/latest`, `/epochs/{number}` | `GET /epoch_info` |
 | Epoch parameters | `GET /epochs/.../parameters` | `GET /epoch_params` |
+| Transaction | `GET /txs/{hash}` (+ utxos/metadata/cbor) | `POST /tx_info` (+ utxos/metadata/cbor) |
 | Address info | `GET /addresses/{address}` | `POST /address_info` |
 | Address UTxOs | `GET /addresses/{address}/utxos` | `POST /address_utxos` |
 | Address transactions | `GET /addresses/{address}/transactions` | `POST /address_txs` |
+| Account info | `GET /accounts/{stake_address}` | `POST /account_info` |
+| Pools | `GET /pools`, `/pools/extended`, `/pools/{id}` | `GET /pool_list`, `POST /pool_info` |
+| Asset info | `GET /assets/{asset}` | `POST /asset_info` |
 | Submit transaction | `POST /tx/submit` | `POST /submittx` |
 
 Plus Janus-native `GET /health` for probes and `GET /endpoints` for an HTML coverage overview (implemented routes are linked).

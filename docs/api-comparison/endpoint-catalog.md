@@ -234,8 +234,8 @@ HTTP style note: Blockfrost is mostly `GET` with path params. Koios is often `PO
 
 Suggested expansion order after the PoC tip + address pair:
 
-1. **High likelihood, high client value:** genesis, epochs (+ params), block_info, tx_info/utxos/metadata/cbor, address utxos/txs, account_info, pool_info/list, asset_info, submit tx.
-2. **Partial but doable:** epoch stake/block distributions, governance committee/drep/proposal families, script/datum routes.
+1. **High likelihood, high client value:** genesis, epochs (+ params), block_info, tx_info/utxos/metadata/cbor, address utxos/txs, account_info, pool_info/list, asset_info, submit tx. **(implemented in Janus)**
+2. **Partial but doable:** epoch stake/block distributions, governance committee/drep/proposal families, script/datum routes, pool history/delegators/metadata, account rewards/history.
 3. **Defer / document as Gaps:** mempool, BF evaluate utilities, IPFS/metrics/nutlink, Koios-only analytics (totals, credential_*, global lists), Ogmios proxy.
 
 ---

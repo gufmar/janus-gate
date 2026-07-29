@@ -79,3 +79,34 @@ class BlockfrostProvider(HttpProvider):
             content=cbor,
             headers={"Content-Type": "application/cbor"},
         )
+
+    async def get_tx(self, tx_hash: str) -> Any:
+        return await self.request("GET", f"/txs/{tx_hash}")
+
+    async def get_tx_utxos(self, tx_hash: str) -> Any:
+        return await self.request("GET", f"/txs/{tx_hash}/utxos")
+
+    async def get_tx_metadata(self, tx_hash: str) -> Any:
+        return await self.request("GET", f"/txs/{tx_hash}/metadata")
+
+    async def get_tx_cbor(self, tx_hash: str) -> Any:
+        return await self.request("GET", f"/txs/{tx_hash}/cbor")
+
+    async def get_account_info(self, stake_address: str) -> Any:
+        return await self.request("GET", f"/accounts/{stake_address}")
+
+    async def get_pools(self, *, count: int = 100, page: int = 1) -> Any:
+        return await self.request(
+            "GET", "/pools", params={"count": count, "page": page}
+        )
+
+    async def get_pools_extended(self, *, count: int = 100, page: int = 1) -> Any:
+        return await self.request(
+            "GET", "/pools/extended", params={"count": count, "page": page}
+        )
+
+    async def get_pool(self, pool_id: str) -> Any:
+        return await self.request("GET", f"/pools/{pool_id}")
+
+    async def get_asset(self, asset: str) -> Any:
+        return await self.request("GET", f"/assets/{asset}")

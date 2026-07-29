@@ -131,3 +131,61 @@ class KoiosProvider(HttpProvider):
             content=cbor,
             headers={"Content-Type": "application/cbor"},
         )
+
+    async def get_tx(self, tx_hash: str) -> Any:
+        return await self.request(
+            "POST", "/tx_info", json={"_tx_hashes": [tx_hash]}
+        )
+
+    async def get_tx_utxos(self, tx_hash: str) -> Any:
+        return await self.request(
+            "POST", "/tx_utxos", json={"_tx_hashes": [tx_hash]}
+        )
+
+    async def get_tx_metadata(self, tx_hash: str) -> Any:
+        return await self.request(
+            "POST", "/tx_metadata", json={"_tx_hashes": [tx_hash]}
+        )
+
+    async def get_tx_cbor(self, tx_hash: str) -> Any:
+        return await self.request(
+            "POST", "/tx_cbor", json={"_tx_hashes": [tx_hash]}
+        )
+
+    async def get_account_info(self, stake_address: str) -> Any:
+        return await self.request(
+            "POST",
+            "/account_info",
+            json={"_stake_addresses": [stake_address]},
+        )
+
+    async def get_pools(self, *, count: int = 100, page: int = 1) -> Any:
+        return await self.request(
+            "GET",
+            "/pool_list",
+            params={"limit": count, "offset": page_to_offset(page, count)},
+        )
+
+    async def get_pools_extended(self, *, count: int = 100, page: int = 1) -> Any:
+        return await self.get_pools(count=count, page=page)
+
+    async def get_pool(self, pool_id: str) -> Any:
+        return await self.request(
+            "POST",
+            "/pool_info",
+            json={"_pool_bech32_ids": [pool_id]},
+        )
+
+    async def get_asset(self, asset: str) -> Any:
+        if len(asset) < 56:
+            from janus_gate.providers.base import ProviderError
+
+            raise ProviderError(
+                400, {"message": "Invalid asset id", "status_code": 400}
+            )
+        policy_id, asset_name = asset[:56], asset[56:]
+        return await self.request(
+            "POST",
+            "/asset_info",
+            json={"_asset_list": [[policy_id, asset_name]]},
+        )

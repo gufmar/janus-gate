@@ -2,20 +2,28 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
 
 from janus_gate.config import ProviderName
 from janus_gate.faces.common import pagination_params, run_upstream
 from janus_gate.mappers.registry import (
+    fetch_account_as,
     fetch_address_as,
     fetch_address_transactions_as,
     fetch_address_utxos_as,
+    fetch_asset_as,
     fetch_block_as,
     fetch_epoch_as,
     fetch_epoch_parameters_as,
     fetch_genesis_as,
+    fetch_pool_as,
+    fetch_pools_as,
     fetch_tip_as,
+    fetch_tx_as,
+    fetch_tx_cbor_as,
+    fetch_tx_metadata_as,
+    fetch_tx_utxos_as,
     submit_tx_as,
 )
 
@@ -75,6 +83,36 @@ def build_blockfrost_router() -> APIRouter:
             )
         )
 
+    @router.get("/txs/{tx_hash}")
+    async def tx_by_hash(tx_hash: str, request: Request):
+        return await run_upstream(
+            fetch_tx_as(ProviderName.BLOCKFROST, request.app.state.backend, tx_hash)
+        )
+
+    @router.get("/txs/{tx_hash}/utxos")
+    async def tx_utxos(tx_hash: str, request: Request):
+        return await run_upstream(
+            fetch_tx_utxos_as(
+                ProviderName.BLOCKFROST, request.app.state.backend, tx_hash
+            )
+        )
+
+    @router.get("/txs/{tx_hash}/metadata")
+    async def tx_metadata(tx_hash: str, request: Request):
+        return await run_upstream(
+            fetch_tx_metadata_as(
+                ProviderName.BLOCKFROST, request.app.state.backend, tx_hash
+            )
+        )
+
+    @router.get("/txs/{tx_hash}/cbor")
+    async def tx_cbor(tx_hash: str, request: Request):
+        return await run_upstream(
+            fetch_tx_cbor_as(
+                ProviderName.BLOCKFROST, request.app.state.backend, tx_hash
+            )
+        )
+
     @router.get("/addresses/{address}")
     async def address_info(address: str, request: Request):
         return await run_upstream(
@@ -121,15 +159,70 @@ def build_blockfrost_router() -> APIRouter:
             )
         )
 
+    @router.get("/accounts/{stake_address}")
+    async def account_info(stake_address: str, request: Request):
+        return await run_upstream(
+            fetch_account_as(
+                ProviderName.BLOCKFROST,
+                request.app.state.backend,
+                stake_address,
+            )
+        )
+
+    @router.get("/pools")
+    async def pools(
+        request: Request,
+        count: int = Query(default=100, ge=1, le=100),
+        page: int = Query(default=1, ge=1),
+    ):
+        return await run_upstream(
+            fetch_pools_as(
+                ProviderName.BLOCKFROST,
+                request.app.state.backend,
+                count=count,
+                page=page,
+                extended=False,
+            )
+        )
+
+    @router.get("/pools/extended")
+    async def pools_extended(
+        request: Request,
+        count: int = Query(default=100, ge=1, le=100),
+        page: int = Query(default=1, ge=1),
+    ):
+        return await run_upstream(
+            fetch_pools_as(
+                ProviderName.BLOCKFROST,
+                request.app.state.backend,
+                count=count,
+                page=page,
+                extended=True,
+            )
+        )
+
+    @router.get("/pools/{pool_id}")
+    async def pool_by_id(pool_id: str, request: Request):
+        return await run_upstream(
+            fetch_pool_as(
+                ProviderName.BLOCKFROST, request.app.state.backend, pool_id
+            )
+        )
+
+    @router.get("/assets/{asset}")
+    async def asset_by_id(asset: str, request: Request):
+        return await run_upstream(
+            fetch_asset_as(
+                ProviderName.BLOCKFROST, request.app.state.backend, asset
+            )
+        )
+
     @router.post("/tx/submit")
     async def tx_submit(request: Request):
         body = await request.body()
         if not body:
-            from fastapi import HTTPException
-
             raise HTTPException(status_code=400, detail="Empty transaction body")
         result = await run_upstream(submit_tx_as(request.app.state.backend, body))
-        # Blockfrost returns a JSON string (tx hash).
         if isinstance(result, str):
             return PlainTextResponse(f'"{result}"', media_type="application/json")
         return result

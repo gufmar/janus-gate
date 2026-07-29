@@ -15,17 +15,19 @@ This folder compares Blockfrost and Koios endpoints so Janus Gate can grow cover
 
 For every published route on both providers, including **BF-only** / **Koios-only** gaps and suggested Janus priority bands, see [endpoint-catalog.md](endpoint-catalog.md).
 
-## PoC matrix
+## Implemented matrix
 
-| Concept | Blockfrost | Koios | Dominant classes | Notes |
-| --- | --- | --- | --- | --- |
-| Network tip | `GET /blocks/latest` | `GET /tip` | Rename, Convert, Gap | [network-tip.md](endpoints/network-tip.md) |
-| Block by id | `GET /blocks/{hash_or_number}` | `POST /block_info` | Rename, Convert | [block-info.md](endpoints/block-info.md) |
-| Genesis | `GET /genesis` | `GET /genesis` | Rename, Convert | [genesis.md](endpoints/genesis.md) |
-| Epoch info / params | `/epochs/...` | `/epoch_info`, `/epoch_params` | Rename, Convert | [epochs.md](endpoints/epochs.md) |
-| Address info | `GET /addresses/{address}` | `POST /address_info` | Rename, Convert, Gap | [address-info.md](endpoints/address-info.md) |
-| Address UTxOs / txs | `/addresses/.../utxos`, `/transactions` | `/address_utxos`, `/address_txs` | Convert, Gap | [address-utxos-txs.md](endpoints/address-utxos-txs.md) |
-| Submit tx | `POST /tx/submit` | `POST /submittx` | Compatible (passthrough) | [address-utxos-txs.md](endpoints/address-utxos-txs.md) |
+| Concept | Blockfrost | Koios | Notes |
+| --- | --- | --- | --- |
+| Network tip | `GET /blocks/latest` | `GET /tip` | [network-tip.md](endpoints/network-tip.md) |
+| Block by id | `GET /blocks/{hash_or_number}` | `POST /block_info` | [block-info.md](endpoints/block-info.md) |
+| Genesis | `GET /genesis` | `GET /genesis` | [genesis.md](endpoints/genesis.md) |
+| Epoch info / params | `/epochs/...` | `/epoch_info`, `/epoch_params` | [epochs.md](endpoints/epochs.md) |
+| Transactions | `/txs/{hash}` (+utxos/metadata/cbor) | `/tx_info` (+utxos/metadata/cbor) | [transactions.md](endpoints/transactions.md) |
+| Address info | `GET /addresses/{address}` | `POST /address_info` | [address-info.md](endpoints/address-info.md) |
+| Address UTxOs / txs | `/addresses/.../utxos`, `/transactions` | `/address_utxos`, `/address_txs` | [address-utxos-txs.md](endpoints/address-utxos-txs.md) |
+| Account / pools / assets | accounts, pools, assets | account_info, pool_*, asset_info | [accounts-pools-assets.md](endpoints/accounts-pools-assets.md) |
+| Submit tx | `POST /tx/submit` | `POST /submittx` | [address-utxos-txs.md](endpoints/address-utxos-txs.md) |
 
 ## Auth headers
 
