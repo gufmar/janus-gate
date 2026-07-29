@@ -8,4 +8,11 @@ public_face: koios
 backend:
   provider: blockfrost
   base_url: https://cardano-mainnet.blockfrost.io/api/v0
-  # Requires JANUS_BACKEND_API_KEY (Blockfrost project_id)
+
+auth:
+  key_map: []
+    # - label: tenant-a
+    #   public_key: your_public_koios_style_token
+    #   backend_key: mainnetYourBlockfrostProjectId
+  # Fallback Blockfrost project_id when Bearer is missing/unknown (or null for none).
+  fallback_backend_key: null

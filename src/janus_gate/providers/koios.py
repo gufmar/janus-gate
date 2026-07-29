@@ -11,13 +11,17 @@ class KoiosProvider(HttpProvider):
     name = "koios"
 
     def __init__(self, base_url: str, api_key: str | None = None) -> None:
-        headers: dict[str, str] = {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        }
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
-        super().__init__(base_url, headers=headers)
+        # api_key kept for call-site compatibility; per-request auth uses context.
+        del api_key
+        super().__init__(
+            base_url,
+            headers={
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+            },
+            auth_header="Authorization",
+            auth_prefix="Bearer ",
+        )
 
     async def get_tip(self) -> Any:
         return await self.request("GET", "/tip")

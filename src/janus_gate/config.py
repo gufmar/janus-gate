@@ -39,13 +39,53 @@ class ServerConfig(BaseModel):
 class BackendConfig(BaseModel):
     provider: ProviderName
     base_url: str
+    # Deprecated alias for auth.fallback_backend_key (kept for older configs).
     api_key: str | None = None
+
+
+class KeyMapping(BaseModel):
+    """Map a public-face API key to the upstream backend API key."""
+
+    public_key: str
+    backend_key: str
+    label: str | None = None
+
+    @field_validator("public_key", "backend_key", mode="before")
+    @classmethod
+    def strip_keys(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return value.strip()
+        return value
+
+
+class AuthConfig(BaseModel):
+    """Public-face API key -> backend API key mapping."""
+
+    key_map: list[KeyMapping] = Field(default_factory=list)
+    # Used when the client key is missing or not listed in key_map.
+    # Empty/null means call the backend without an API key (e.g. Koios free tier).
+    fallback_backend_key: str | None = None
+
+    @field_validator("key_map", mode="before")
+    @classmethod
+    def empty_key_map(cls, value: Any) -> Any:
+        return [] if value is None else value
+
+    @field_validator("fallback_backend_key", mode="before")
+    @classmethod
+    def empty_fallback_to_none(cls, value: Any) -> Any:
+        if value is None:
+            return None
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value.strip() if isinstance(value, str) else value
 
 
 class AppConfig(BaseModel):
     server: ServerConfig = Field(default_factory=ServerConfig)
     public_face: ProviderName
     backend: BackendConfig
+    auth: AuthConfig = Field(default_factory=AuthConfig)
 
     @field_validator("backend", mode="before")
     @classmethod
@@ -59,6 +99,12 @@ class AppConfig(BaseModel):
                 "public_face and backend.provider must differ "
                 f"(both are {self.public_face!r}); Janus translates between providers"
             )
+        return self
+
+    @model_validator(mode="after")
+    def migrate_legacy_backend_api_key(self) -> AppConfig:
+        if self.auth.fallback_backend_key is None and self.backend.api_key:
+            self.auth.fallback_backend_key = self.backend.api_key.strip() or None
         return self
 
 
@@ -77,6 +123,9 @@ def _apply_env_overrides(data: dict[str, Any]) -> dict[str, Any]:
     api_key = os.environ.get("JANUS_BACKEND_API_KEY")
     if api_key:
         backend["api_key"] = api_key
+        auth = data.setdefault("auth", {})
+        if isinstance(auth, dict) and auth.get("fallback_backend_key") in (None, ""):
+            auth["fallback_backend_key"] = api_key
 
     base_url = os.environ.get("JANUS_BACKEND_BASE_URL")
     if base_url:

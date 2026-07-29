@@ -67,8 +67,17 @@ def validate_config(
     typer.echo(f"  base_url:    {loaded.backend.base_url}")
     typer.echo(f"  listen:      {loaded.server.host}:{loaded.server.port}")
     typer.echo(f"  base_path:   {loaded.server.base_path or '/'}")
+    typer.echo(f"  key_map:     {len(loaded.auth.key_map)} entr(y/ies)")
     typer.echo(
-        f"  api_key:     {'set' if loaded.backend.api_key else 'not set'}"
+        "  fallback:    "
+        + (
+            "anonymous upstream"
+            if not loaded.auth.fallback_backend_key
+            else "set"
+        )
+    )
+    typer.echo(
+        f"  api_key:     {'set' if loaded.backend.api_key else 'not set'} (legacy backend.api_key)"
     )
 
 

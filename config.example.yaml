@@ -14,5 +14,15 @@ backend:
   # Upstream data source: must differ from public_face
   provider: koios
   base_url: https://api.koios.rest/api/v1
-  # Prefer JANUS_BACKEND_API_KEY in the environment instead of storing secrets here.
-  # api_key: ""
+
+# Map public-face API keys to backend API keys.
+# Blockfrost face: clients send header `project_id: <public_key>`
+# Koios face: clients send `Authorization: Bearer <public_key>`
+auth:
+  # - label: tenant-a
+  #   public_key: mainnetYourBlockfrostProjectId
+  #   backend_key: your_koios_bearer_token
+  key_map: []
+  # Used when project_id/Bearer is missing or not listed above.
+  # Empty/omitted/null = call Koios without a key (free-tier limits).
+  fallback_backend_key: null

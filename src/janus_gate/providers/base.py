@@ -6,6 +6,8 @@ from typing import Any, Protocol
 
 import httpx
 
+from janus_gate.auth import get_backend_api_key
+
 
 class ProviderError(Exception):
     """Raised when an upstream provider call fails."""
@@ -57,12 +59,29 @@ class BackendProvider(Protocol):
 class HttpProvider:
     """Thin async HTTP helper shared by concrete providers."""
 
-    def __init__(self, base_url: str, headers: dict[str, str] | None = None) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        *,
+        headers: dict[str, str] | None = None,
+        auth_header: str | None = None,
+        auth_prefix: str = "",
+    ) -> None:
+        self._auth_header = auth_header
+        self._auth_prefix = auth_prefix
         self._client = httpx.AsyncClient(
             base_url=base_url.rstrip("/"),
             headers=headers or {},
             timeout=httpx.Timeout(30.0),
         )
+
+    def _auth_headers(self) -> dict[str, str]:
+        if not self._auth_header:
+            return {}
+        key = get_backend_api_key()
+        if not key:
+            return {}
+        return {self._auth_header: f"{self._auth_prefix}{key}"}
 
     async def request(
         self,
@@ -74,13 +93,16 @@ class HttpProvider:
         content: bytes | None = None,
         headers: dict[str, str] | None = None,
     ) -> Any:
+        merged_headers = self._auth_headers()
+        if headers:
+            merged_headers.update(headers)
         response = await self._client.request(
             method,
             path,
             json=json,
             params=params,
             content=content,
-            headers=headers,
+            headers=merged_headers or None,
         )
         if response.status_code >= 400:
             try:

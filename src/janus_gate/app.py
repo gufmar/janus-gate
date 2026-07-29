@@ -9,6 +9,11 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 
 from janus_gate import __version__
+from janus_gate.auth import (
+    ApiKeyMappingMiddleware,
+    auth_health_payload,
+    configure_auth_fallback,
+)
 from janus_gate.config import AppConfig, ProviderName, public_url
 from janus_gate.faces.blockfrost import build_blockfrost_router
 from janus_gate.faces.koios import build_koios_router
@@ -19,6 +24,7 @@ from janus_gate.providers import create_backend
 def create_app(config: AppConfig) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        configure_auth_fallback(config.auth.fallback_backend_key)
         backend = create_backend(config)
         app.state.backend = backend
         app.state.config = config
@@ -37,6 +43,7 @@ def create_app(config: AppConfig) -> FastAPI:
         root_path=config.server.base_path,
         lifespan=lifespan,
     )
+    app.add_middleware(ApiKeyMappingMiddleware, config=config)
 
     @app.get("/health")
     async def health() -> dict[str, Any]:
@@ -47,6 +54,7 @@ def create_app(config: AppConfig) -> FastAPI:
             "backend": config.backend.provider.value,
             "base_path": config.server.base_path or "/",
             "endpoints": public_url(config.server.base_path, "/endpoints"),
+            "auth": auth_health_payload(config.auth),
         }
 
     @app.get("/endpoints", response_class=HTMLResponse, include_in_schema=False)

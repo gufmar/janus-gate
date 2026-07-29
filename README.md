@@ -121,7 +121,27 @@ Example Blockfrost-face tip (with `public_face: blockfrost` and Koios backend):
 curl http://127.0.0.1:8080/blocks/latest
 ```
 
-Swap faces in `config.yaml` (`public_face: koios`, `backend.provider: blockfrost`) to expose Koios-shaped routes backed by Blockfrost. See also `config.koios-face.example.yaml` (Blockfrost backend needs `JANUS_BACKEND_API_KEY`).
+Swap faces in `config.yaml` (`public_face: koios`, `backend.provider: blockfrost`) to expose Koios-shaped routes backed by Blockfrost. See also `config.koios-face.example.yaml` (Blockfrost backend needs a mapped or fallback API key).
+
+## API key mapping
+
+Clients authenticate with the **public face** header style:
+
+- Blockfrost face: `project_id: <public_key>`
+- Koios face: `Authorization: Bearer <public_key>`
+
+Janus looks up that key in `auth.key_map` and uses the mapped `backend_key` for upstream calls. Unknown or missing public keys use `auth.fallback_backend_key` (omit/null/empty = anonymous upstream, e.g. Koios free tier). Fallback usage is logged and returned as `X-Janus-Auth-Warning`.
+
+```yaml
+auth:
+  key_map:
+    - label: tenant-a
+      public_key: mainnetYourBlockfrostProjectId
+      backend_key: your_koios_bearer_token
+  fallback_backend_key: null
+```
+
+`GET /health` includes masked previews (`first10...last10`) of configured backend keys under `auth`.
 
 ## CLI
 
