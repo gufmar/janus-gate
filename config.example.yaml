@@ -18,8 +18,12 @@ backend:
   base_url: https://api.koios.rest/api/v1
   # passthrough: false
   # For dbsync: omit base_url (or leave unused), set dsn instead.
-  # dsn: postgresql://user:pass@localhost:5432/cexplorer
-  # See config.dbsync.example.yaml and docs/backends/dbsync.md
+  # dsn: postgresql://user:pass@10.0.0.5:5432/cexplorer
+  # Optional SSH tunnel: see config.dbsync.example.yaml and docs/backends/dbsync.md
+  # ssh_tunnel:
+  #   host: bastion.example.com
+  #   user: deploy
+  #   private_key_path: /path/to/id_ed25519
 
 # Map public-face API keys to backend API keys.
 # Blockfrost face: clients send header `project_id: <public_key>`

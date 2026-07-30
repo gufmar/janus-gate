@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 import asyncpg
 
+from janus_gate.config import SshTunnelConfig
 from janus_gate.providers.base import ProviderError
+from janus_gate.providers.ssh_tunnel import start_ssh_tunnel, stop_ssh_tunnel
 
 _BLOCK_SELECT = """
 SELECT
@@ -64,18 +67,43 @@ class DbSyncProvider:
 
     name = "dbsync"
 
-    def __init__(self, dsn: str) -> None:
+    def __init__(
+        self,
+        dsn: str,
+        *,
+        ssh_tunnel: SshTunnelConfig | None = None,
+    ) -> None:
         self._dsn = dsn
+        self._ssh_tunnel_cfg = ssh_tunnel
+        self._tunnel: Any | None = None
         self._pool: asyncpg.Pool | None = None
 
     async def connect(self) -> None:
-        if self._pool is None:
-            self._pool = await asyncpg.create_pool(self._dsn, min_size=1, max_size=5)
+        if self._pool is not None:
+            return
+        connect_dsn = self._dsn
+        cfg = self._ssh_tunnel_cfg
+        if cfg is not None and cfg.enabled:
+            self._tunnel, connect_dsn = await asyncio.to_thread(
+                start_ssh_tunnel, dsn=self._dsn, cfg=cfg
+            )
+        try:
+            self._pool = await asyncpg.create_pool(
+                connect_dsn, min_size=1, max_size=5
+            )
+        except Exception:
+            if self._tunnel is not None:
+                await asyncio.to_thread(stop_ssh_tunnel, self._tunnel)
+                self._tunnel = None
+            raise
 
     async def aclose(self) -> None:
         if self._pool is not None:
             await self._pool.close()
             self._pool = None
+        if self._tunnel is not None:
+            await asyncio.to_thread(stop_ssh_tunnel, self._tunnel)
+            self._tunnel = None
 
     async def _pool_or_raise(self) -> asyncpg.Pool:
         if self._pool is None:

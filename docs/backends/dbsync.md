@@ -8,12 +8,37 @@ Phase 2 adds `backend.provider: dbsync` so a Blockfrost face can read a local [c
 public_face: blockfrost
 backend:
   provider: dbsync
-  dsn: postgresql://user:pass@127.0.0.1:5432/cexplorer
+  dsn: postgresql://user:pass@10.0.0.5:5432/cexplorer
 ```
 
 Or set `JANUS_BACKEND_DSN`. See `config.dbsync.example.yaml`.
 
 Assumes the **official** db-sync public schema (with `address` on `tx_out`, not the `use_address_table` variant).
+
+### Optional SSH tunnel
+
+When Postgres is only reachable through a jump host, configure `backend.ssh_tunnel`. Janus opens a local port-forward before creating the asyncpg pool, and closes it on shutdown.
+
+```yaml
+backend:
+  provider: dbsync
+  # Host/port here are as seen *from the SSH jump host* (often a private IP).
+  dsn: postgresql://dbsync_user:SECRET@10.0.0.5:5432/cexplorer
+  ssh_tunnel:
+    enabled: true
+    host: bastion.example.com
+    port: 22
+    user: deploy
+    private_key_path: /path/to/id_ed25519
+    # passphrase: optional key passphrase
+    # password: optional SSH password (prefer keys)
+    # remote_bind_host / remote_bind_port: override DSN target if needed
+    # local_bind_port: 0   # 0 = ephemeral
+```
+
+Environment overrides (optional): `JANUS_SSH_TUNNEL`, `JANUS_SSH_HOST`, `JANUS_SSH_PORT`, `JANUS_SSH_USER`, `JANUS_SSH_PRIVATE_KEY_PATH`, `JANUS_SSH_PRIVATE_KEY` (PEM contents), `JANUS_SSH_PASSWORD`, `JANUS_SSH_PASSPHRASE`, `JANUS_SSH_REMOTE_BIND_HOST`, `JANUS_SSH_REMOTE_BIND_PORT`.
+
+Do not commit private keys or passwords. An OS-level or infra SSH tunnel remains valid; leave `ssh_tunnel` unset and point `dsn` at `127.0.0.1` in that case.
 
 ## MVP coverage (Blockfrost face)
 

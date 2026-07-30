@@ -61,12 +61,77 @@ class ServerConfig(BaseModel):
         return text.rstrip("/")
 
 
+class SshTunnelConfig(BaseModel):
+    """Optional SSH local port-forward to reach a private Postgres (dbsync)."""
+
+    enabled: bool = True
+    host: str
+    port: int = Field(default=22, ge=1, le=65535)
+    user: str
+    # Prefer a key file; password auth is supported but weaker.
+    private_key_path: str | None = None
+    # PEM private key contents (e.g. from JANUS_SSH_PRIVATE_KEY). Avoid committing.
+    private_key: str | None = None
+    password: str | None = None
+    passphrase: str | None = None
+    # Override remote bind (defaults: host/port parsed from backend.dsn).
+    remote_bind_host: str | None = None
+    remote_bind_port: int | None = Field(default=None, ge=1, le=65535)
+    local_bind_host: str = "127.0.0.1"
+    # 0 = ephemeral local port chosen by the OS.
+    local_bind_port: int = Field(default=0, ge=0, le=65535)
+
+    @field_validator(
+        "host",
+        "user",
+        "local_bind_host",
+        mode="before",
+    )
+    @classmethod
+    def strip_required_str(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return value.strip()
+        return value
+
+    @field_validator(
+        "private_key_path",
+        "private_key",
+        "password",
+        "passphrase",
+        "remote_bind_host",
+        mode="before",
+    )
+    @classmethod
+    def strip_optional_str(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            text = value.strip()
+            return text or None
+        return value
+
+    @model_validator(mode="after")
+    def require_credentials_when_enabled(self) -> SshTunnelConfig:
+        if not self.enabled:
+            return self
+        if not self.host or not self.user:
+            raise ValueError("ssh_tunnel.host and ssh_tunnel.user are required when enabled")
+        has_key = bool(self.private_key_path) or bool(self.private_key)
+        has_password = bool(self.password)
+        if not has_key and not has_password:
+            raise ValueError(
+                "ssh_tunnel requires private_key_path, private_key, or password "
+                "when enabled"
+            )
+        return self
+
+
 class BackendConfig(BaseModel):
     provider: BackendSource
     # Required for API mirrors (blockfrost / koios). Optional for data sources.
     base_url: str | None = None
     # Required for dbsync (Phase 2). Ignored by HTTP mirrors.
     dsn: str | None = None
+    # Optional SSH tunnel for dbsync when Postgres is only reachable via a jump host.
+    ssh_tunnel: SshTunnelConfig | None = None
     # Allow public_face == API mirror source (explicit same-provider proxy).
     passthrough: bool = False
     # Deprecated alias for auth.fallback_backend_key (kept for older configs).
@@ -196,6 +261,12 @@ class AppConfig(BaseModel):
             # Allow listing in config enums; factory still rejects until Phase 5.
             pass
 
+        tunnel = self.backend.ssh_tunnel
+        if tunnel is not None and tunnel.enabled and source is not BackendSource.DBSYNC:
+            raise ValueError(
+                "backend.ssh_tunnel is only supported when backend.provider is dbsync"
+            )
+
         return self
 
     @model_validator(mode="after")
@@ -231,6 +302,40 @@ def _apply_env_overrides(data: dict[str, Any]) -> dict[str, Any]:
     dsn = os.environ.get("JANUS_BACKEND_DSN")
     if dsn:
         backend["dsn"] = dsn
+
+    ssh_env_map = {
+        "JANUS_SSH_HOST": "host",
+        "JANUS_SSH_PORT": "port",
+        "JANUS_SSH_USER": "user",
+        "JANUS_SSH_PRIVATE_KEY_PATH": "private_key_path",
+        "JANUS_SSH_PRIVATE_KEY": "private_key",
+        "JANUS_SSH_PASSWORD": "password",
+        "JANUS_SSH_PASSPHRASE": "passphrase",
+        "JANUS_SSH_REMOTE_BIND_HOST": "remote_bind_host",
+        "JANUS_SSH_REMOTE_BIND_PORT": "remote_bind_port",
+        "JANUS_SSH_LOCAL_BIND_HOST": "local_bind_host",
+        "JANUS_SSH_LOCAL_BIND_PORT": "local_bind_port",
+    }
+    ssh_enabled = os.environ.get("JANUS_SSH_TUNNEL")
+    if ssh_enabled is not None or any(os.environ.get(k) for k in ssh_env_map):
+        tunnel = backend.setdefault("ssh_tunnel", {})
+        if not isinstance(tunnel, dict):
+            raise ValueError("backend.ssh_tunnel must be a mapping")
+        if ssh_enabled is not None:
+            tunnel["enabled"] = ssh_enabled.strip().lower() in {
+                "1",
+                "true",
+                "yes",
+                "on",
+            }
+        for env_name, field in ssh_env_map.items():
+            value = os.environ.get(env_name)
+            if value is None:
+                continue
+            if field in {"port", "remote_bind_port", "local_bind_port"}:
+                tunnel[field] = int(value)
+            else:
+                tunnel[field] = value
 
     provider = os.environ.get("JANUS_BACKEND_PROVIDER")
     if provider:

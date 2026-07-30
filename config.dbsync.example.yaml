@@ -7,9 +7,24 @@ public_face: blockfrost
 
 backend:
   provider: dbsync
-  # PostgreSQL DSN for cardano-db-sync (required). base_url is unused.
-  dsn: postgresql://dbsync_user:CHANGE_ME@127.0.0.1:5432/cexplorer
+  # PostgreSQL as reachable from Janus, or from the SSH jump host when tunneling.
+  dsn: postgresql://dbsync_user:CHANGE_ME@10.0.0.5:5432/cexplorer
   # Or set JANUS_BACKEND_DSN
+  #
+  # Optional: SSH local forward when Postgres is only reachable via a jump host.
+  # ssh_tunnel:
+  #   enabled: true
+  #   host: bastion.example.com
+  #   port: 22
+  #   user: deploy
+  #   private_key_path: /path/to/id_ed25519
+  #   # private_key: |   # or PEM via JANUS_SSH_PRIVATE_KEY
+  #   # passphrase: null
+  #   # password: null
+  #   # remote_bind_host: 10.0.0.5
+  #   # remote_bind_port: 5432
+  #   # local_bind_host: 127.0.0.1
+  #   # local_bind_port: 0
 
 auth:
   key_map: []

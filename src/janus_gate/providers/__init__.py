@@ -25,7 +25,10 @@ def create_backend(config: AppConfig) -> BackendProvider:
     if provider is BackendSource.DBSYNC:
         if not (config.backend.dsn or "").strip():
             raise ValueError("backend.dsn is required for dbsync")
-        return DbSyncProvider(config.backend.dsn.strip())
+        return DbSyncProvider(
+            config.backend.dsn.strip(),
+            ssh_tunnel=config.backend.ssh_tunnel,
+        )
     if provider in (BackendSource.OGMIOS, BackendSource.YACI):
         raise NotImplementedError(
             f"{provider.value} backend is reserved for a later phase "
