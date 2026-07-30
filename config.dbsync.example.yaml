@@ -18,8 +18,8 @@ backend:
   #   port: 22
   #   user: deploy
   #   private_key_path: /path/to/id_ed25519
+  #   # passphrase: required if the key file is encrypted
   #   # private_key: |   # or PEM via JANUS_SSH_PRIVATE_KEY
-  #   # passphrase: null
   #   # password: null
   #   # remote_bind_host: 10.0.0.5
   #   # remote_bind_port: 5432

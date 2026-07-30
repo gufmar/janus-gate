@@ -50,31 +50,55 @@ def _load_pkey(cfg: SshTunnelConfig) -> Any | None:
 
     # Import lazily so API-mirror deployments need not load Paramiko until used.
     import paramiko
+    from paramiko.ssh_exception import PasswordRequiredException, SSHException
 
     passphrase = cfg.passphrase
+    # Prefer Ed25519 (common OpenSSH default), then RSA / ECDSA.
     loaders = (
         paramiko.Ed25519Key,
         paramiko.RSAKey,
         paramiko.ECDSAKey,
     )
 
+    def _clarify_key_error(exc: Exception, source: str) -> ValueError:
+        if isinstance(exc, PasswordRequiredException):
+            if passphrase:
+                return ValueError(
+                    f"SSH private key is encrypted and the configured passphrase "
+                    f"was rejected ({source}). Check ssh_tunnel.passphrase / "
+                    "JANUS_SSH_PASSPHRASE."
+                )
+            return ValueError(
+                f"SSH private key is encrypted ({source}). Set "
+                "ssh_tunnel.passphrase or JANUS_SSH_PASSPHRASE "
+                "(or use an unencrypted deploy key)."
+            )
+        return ValueError(f"Could not load SSH private key from {source}")
+
     def _from_file(path: str) -> Any:
         last_exc: Exception | None = None
         for cls in loaders:
             try:
                 return cls.from_private_key_file(path, password=passphrase)
-            except Exception as exc:  # noqa: BLE001 - try next key type
+            except PasswordRequiredException as exc:
+                raise _clarify_key_error(exc, path) from exc
+            except (SSHException, OSError, ValueError) as exc:
                 last_exc = exc
-        raise ValueError(f"Could not load SSH private key from {path}") from last_exc
+        assert last_exc is not None
+        raise _clarify_key_error(last_exc, path) from last_exc
 
     def _from_pem(pem: str) -> Any:
         last_exc: Exception | None = None
+        source = "private_key PEM"
         for cls in loaders:
             try:
                 return cls.from_private_key(io.StringIO(pem), password=passphrase)
-            except Exception as exc:  # noqa: BLE001 - try next key type
+            except PasswordRequiredException as exc:
+                raise _clarify_key_error(exc, source) from exc
+            except (SSHException, OSError, ValueError) as exc:
                 last_exc = exc
-        raise ValueError("Could not load SSH private key from private_key PEM") from last_exc
+        assert last_exc is not None
+        raise _clarify_key_error(last_exc, source) from last_exc
 
     if cfg.private_key_path:
         return _from_file(cfg.private_key_path)

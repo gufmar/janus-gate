@@ -111,3 +111,22 @@ def test_start_ssh_tunnel_rewrites_dsn() -> None:
     assert kwargs["ssh_address_or_host"] == ("bastion", 22)
     assert kwargs["remote_bind_address"] == ("10.1.2.3", 5432)
     assert kwargs["ssh_password"] == "secret"
+
+
+def test_encrypted_key_without_passphrase_is_clear() -> None:
+    from janus_gate.providers.ssh_tunnel import _load_pkey
+    from paramiko.ssh_exception import PasswordRequiredException
+
+    cfg = SshTunnelConfig(
+        host="bastion",
+        user="deploy",
+        private_key_path="/tmp/encrypted_key",
+    )
+
+    with patch(
+        "paramiko.Ed25519Key.from_private_key_file",
+        side_effect=PasswordRequiredException("private key file is encrypted"),
+    ):
+        with pytest.raises(ValueError, match="encrypted") as exc:
+            _load_pkey(cfg)
+    assert "JANUS_SSH_PASSPHRASE" in str(exc.value)

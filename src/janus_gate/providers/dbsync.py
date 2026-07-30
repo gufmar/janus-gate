@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
+from urllib.parse import urlparse
 
 import asyncpg
 
 from janus_gate.config import SshTunnelConfig
 from janus_gate.providers.base import ProviderError
 from janus_gate.providers.ssh_tunnel import start_ssh_tunnel, stop_ssh_tunnel
+
+logger = logging.getLogger("janus_gate.dbsync")
 
 _BLOCK_SELECT = """
 SELECT
@@ -62,6 +66,15 @@ def _nyi(op: str) -> ProviderError:
     )
 
 
+def _safe_dsn_endpoint(dsn: str) -> tuple[str, int | None]:
+    """Host/port for logs (never includes credentials)."""
+    try:
+        parsed = urlparse(dsn)
+        return parsed.hostname or "unknown", parsed.port
+    except Exception:  # noqa: BLE001
+        return "unparseable", None
+
+
 class DbSyncProvider:
     """BackendProvider backed by an official cardano-db-sync schema."""
 
@@ -83,7 +96,21 @@ class DbSyncProvider:
             return
         connect_dsn = self._dsn
         cfg = self._ssh_tunnel_cfg
+        dsn_host, _ = _safe_dsn_endpoint(self._dsn)
+        logger.info(
+            "dbsync connecting (dsn_host=%s ssh_tunnel=%s)",
+            dsn_host,
+            "enabled" if cfg is not None and cfg.enabled else "disabled",
+        )
         if cfg is not None and cfg.enabled:
+            logger.info(
+                "dbsync opening SSH tunnel to %s@%s:%s (key=%s passphrase=%s)",
+                cfg.user,
+                cfg.host,
+                cfg.port,
+                cfg.private_key_path or ("inline" if cfg.private_key else "none"),
+                "set" if cfg.passphrase else "missing",
+            )
             self._tunnel, connect_dsn = await asyncio.to_thread(
                 start_ssh_tunnel, dsn=self._dsn, cfg=cfg
             )
@@ -91,11 +118,30 @@ class DbSyncProvider:
             self._pool = await asyncpg.create_pool(
                 connect_dsn, min_size=1, max_size=5
             )
+            await self._probe_connection()
         except Exception:
             if self._tunnel is not None:
                 await asyncio.to_thread(stop_ssh_tunnel, self._tunnel)
                 self._tunnel = None
             raise
+
+    async def _probe_connection(self) -> None:
+        """Run a lightweight startup check and log tip height when available."""
+        assert self._pool is not None
+        async with self._pool.acquire() as conn:
+            await conn.fetchval("SELECT 1")
+            tip_height = await conn.fetchval(
+                "SELECT MAX(block_no) FROM block WHERE block_no IS NOT NULL"
+            )
+            network = await conn.fetchval(
+                "SELECT network_name FROM meta ORDER BY id LIMIT 1"
+            )
+        logger.info(
+            "dbsync connection ok (network=%s tip_height=%s ssh_tunnel=%s)",
+            network or "unknown",
+            tip_height if tip_height is not None else "empty",
+            "up" if self._tunnel is not None else "unused",
+        )
 
     async def aclose(self) -> None:
         if self._pool is not None:
