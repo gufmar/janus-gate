@@ -1,0 +1,28 @@
+# Example: Blockfrost public face backed by local cardano-db-sync
+server:
+  host: 0.0.0.0
+  port: 8080
+
+public_face: blockfrost
+
+backend:
+  provider: dbsync
+  # PostgreSQL DSN for cardano-db-sync (required). base_url is unused.
+  dsn: postgresql://dbsync_user:CHANGE_ME@127.0.0.1:5432/cexplorer
+  # Or set JANUS_BACKEND_DSN
+
+auth:
+  key_map: []
+  fallback_backend_key: null
+  # debug_log_keys: false
+
+# Optional IP allowlist (see config.example.yaml)
+# access:
+#   allowed_ips: []
+#   deny: endpoints
+
+audit:
+  enabled: true
+  session_ttl_minutes: 60
+  trusted_proxy_hops: 1
+  max_events_per_session: 5000

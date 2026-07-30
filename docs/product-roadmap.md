@@ -21,7 +21,9 @@ Run Koios face + Blockfrost backend (`config.koios-face.example.yaml`). Confirm 
 
 ### Phase 2 – dbSync / PostgreSQL backend
 
-Expose a basic Blockfrost (then Koios) face by reading local cardano-db-sync for networks BF/Koios do not cover. Small endpoint set first (tip, block, genesis/epoch, address/account basics, tx by hash). Submit tx remains a Gap or separate submit path (node/Ogmios).
+Expose a basic Blockfrost face by reading local cardano-db-sync. MVP: tip, block, genesis/epoch (+ params), address (+ utxos), account basics, tx by hash. Submit tx and the rest of the catalog return 501 until extended. See [backends/dbsync.md](backends/dbsync.md).
+
+**Status:** MVP implemented (Blockfrost face).
 
 ### Phase 3 – Master / slave dual backends
 

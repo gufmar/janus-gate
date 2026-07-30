@@ -47,4 +47,4 @@ def test_koios_genesis_to_blockfrost() -> None:
 
 def test_unknown_pair_raises_mapping_error() -> None:
     with pytest.raises(MappingError, match="No face adapter"):
-        adapt_to_face(FaceName.BLOCKFROST, "dbsync", TIP, {"x": 1})
+        adapt_to_face(FaceName.BLOCKFROST, "ogmios", TIP, {"x": 1})

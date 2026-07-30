@@ -42,7 +42,7 @@ def test_same_api_face_allowed_with_passthrough() -> None:
     assert backend.name == "blockfrost"
 
 
-def test_dbsync_validates_with_dsn_but_factory_unimplemented() -> None:
+def test_dbsync_factory_builds_provider() -> None:
     cfg = AppConfig(
         server=ServerConfig(host="127.0.0.1", port=8080),
         public_face=FaceName.BLOCKFROST,
@@ -51,9 +51,8 @@ def test_dbsync_validates_with_dsn_but_factory_unimplemented() -> None:
             dsn="postgresql://user:pass@localhost:5432/dbsync",
         ),
     )
-    assert cfg.backend.dsn is not None
-    with pytest.raises(NotImplementedError, match="Phase 2"):
-        create_backend(cfg)
+    backend = create_backend(cfg)
+    assert backend.name == "dbsync"
 
 
 def test_dbsync_requires_dsn() -> None:

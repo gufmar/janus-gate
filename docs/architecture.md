@@ -28,13 +28,13 @@ Client -> nginx (TLS) -> Face router (BF or Koios paths)
 | `backend.provider` | Source: `blockfrost` \| `koios` \| `dbsync` (reserved) \| … |
 | `backend.passthrough` | Allow face == API source (explicit same-provider proxy) |
 | `backend.base_url` | Required for HTTP API mirrors |
-| `backend.dsn` | Required for `dbsync` (Phase 2; factory not implemented yet) |
+| `backend.dsn` | Required for `dbsync` |
 
 Rules:
 
 - Two different API mirrors (e.g. BF face + Koios backend) is the usual translate mode.
 - Face equals API source only when `passthrough: true`.
-- A data source such as `dbsync` may back either face; implementation lands in Phase 2.
+- A data source such as `dbsync` may back either face; Blockfrost adapters for MVP concepts are implemented (see [backends/dbsync.md](backends/dbsync.md)).
 
 Secrets should come from the environment (`JANUS_BACKEND_API_KEY`), not from committed YAML.
 

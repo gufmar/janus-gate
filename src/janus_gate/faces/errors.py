@@ -20,6 +20,7 @@ _BF_ERROR_NAMES: dict[int, str] = {
     425: "Too Early",
     429: "Too Many Requests",
     500: "Internal Server Error",
+    501: "Not Implemented",
     502: "Bad Gateway",
     503: "Service Unavailable",
     504: "Gateway Timeout",

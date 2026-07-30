@@ -10,6 +10,7 @@ from janus_gate.mappers import account as account_mapper
 from janus_gate.mappers import address as address_mapper
 from janus_gate.mappers import asset as asset_mapper
 from janus_gate.mappers import block as block_mapper
+from janus_gate.mappers import dbsync as dbsync_mapper
 from janus_gate.mappers import epoch as epoch_mapper
 from janus_gate.mappers import genesis as genesis_mapper
 from janus_gate.mappers import governance as governance_mapper
@@ -201,6 +202,14 @@ def _bf_datum_to_koios(raw: Any, **ctx: Any) -> Any:
     return script_mapper.blockfrost_datum_to_koios(raw, ctx["datum_hash"])
 
 
+def _dbsync_address_to_bf(raw: Any, **ctx: Any) -> Any:
+    return dbsync_mapper.dbsync_address_to_blockfrost(raw, ctx["address"])
+
+
+def _dbsync_account_to_bf(raw: Any, **ctx: Any) -> Any:
+    return dbsync_mapper.dbsync_account_to_blockfrost(raw, ctx["stake_address"])
+
+
 def _koios_asset_to_bf(raw: Any, **ctx: Any) -> Any:
     return asset_mapper.koios_asset_info_to_blockfrost(raw, ctx["asset"])
 
@@ -325,6 +334,20 @@ _ADAPTERS: dict[tuple[str, str, str], Adapter] = {
     ),
     ("blockfrost", "koios", ASSET): _koios_asset_to_bf,
     ("koios", "blockfrost", ASSET): _one(asset_mapper.blockfrost_asset_to_koios),
+    # dbsync -> Blockfrost face (Phase 2 MVP)
+    ("blockfrost", "dbsync", TIP): _one(dbsync_mapper.dbsync_block_to_blockfrost),
+    ("blockfrost", "dbsync", BLOCK): _one(dbsync_mapper.dbsync_block_to_blockfrost),
+    ("blockfrost", "dbsync", GENESIS): _one(dbsync_mapper.dbsync_genesis_to_blockfrost),
+    ("blockfrost", "dbsync", EPOCH): _one(dbsync_mapper.dbsync_epoch_to_blockfrost),
+    ("blockfrost", "dbsync", EPOCH_PARAMETERS): _one(
+        dbsync_mapper.dbsync_epoch_params_to_blockfrost
+    ),
+    ("blockfrost", "dbsync", ADDRESS): _dbsync_address_to_bf,
+    ("blockfrost", "dbsync", ADDRESS_UTXOS): _one(
+        dbsync_mapper.dbsync_address_utxos_to_blockfrost
+    ),
+    ("blockfrost", "dbsync", ACCOUNT): _dbsync_account_to_bf,
+    ("blockfrost", "dbsync", TX): _one(dbsync_mapper.dbsync_tx_to_blockfrost),
 }
 
 

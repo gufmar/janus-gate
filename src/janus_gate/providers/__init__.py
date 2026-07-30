@@ -5,6 +5,7 @@ from __future__ import annotations
 from janus_gate.config import AppConfig, BackendSource
 from janus_gate.providers.base import BackendProvider
 from janus_gate.providers.blockfrost import BlockfrostProvider
+from janus_gate.providers.dbsync import DbSyncProvider
 from janus_gate.providers.koios import KoiosProvider
 
 
@@ -22,10 +23,9 @@ def create_backend(config: AppConfig) -> BackendProvider:
             raise ValueError("backend.base_url is required for koios")
         return KoiosProvider(base_url, api_key)
     if provider is BackendSource.DBSYNC:
-        raise NotImplementedError(
-            "dbsync backend is not implemented yet (Phase 2); "
-            "config validates, but create_backend cannot build a provider"
-        )
+        if not (config.backend.dsn or "").strip():
+            raise ValueError("backend.dsn is required for dbsync")
+        return DbSyncProvider(config.backend.dsn.strip())
     if provider in (BackendSource.OGMIOS, BackendSource.YACI):
         raise NotImplementedError(
             f"{provider.value} backend is reserved for a later phase "

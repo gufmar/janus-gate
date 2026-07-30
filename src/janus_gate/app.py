@@ -39,6 +39,9 @@ def create_app(config: AppConfig) -> FastAPI:
     async def lifespan(app: FastAPI):
         configure_auth_fallback(config.auth.fallback_backend_key)
         backend = create_backend(config)
+        connect = getattr(backend, "connect", None)
+        if callable(connect):
+            await connect()
         app.state.backend = backend
         app.state.config = config
         app.state.audit_store = audit_store

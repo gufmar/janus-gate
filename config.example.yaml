@@ -17,8 +17,9 @@ backend:
   provider: koios
   base_url: https://api.koios.rest/api/v1
   # passthrough: false
-  # For dbsync (not implemented yet): omit base_url, set dsn instead.
-  # dsn: postgresql://user:pass@localhost:5432/dbsync
+  # For dbsync: omit base_url (or leave unused), set dsn instead.
+  # dsn: postgresql://user:pass@localhost:5432/cexplorer
+  # See config.dbsync.example.yaml and docs/backends/dbsync.md
 
 # Map public-face API keys to backend API keys.
 # Blockfrost face: clients send header `project_id: <public_key>`
