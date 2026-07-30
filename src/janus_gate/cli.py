@@ -79,6 +79,11 @@ def validate_config(
     typer.echo(
         f"  api_key:     {'set' if loaded.backend.api_key else 'not set'} (legacy backend.api_key)"
     )
+    typer.echo(
+        f"  audit:       {'enabled' if loaded.audit.enabled else 'disabled'}"
+        f" (ttl={loaded.audit.session_ttl_minutes}m,"
+        f" proxy_hops={loaded.audit.trusted_proxy_hops})"
+    )
 
 
 @app.command("serve")

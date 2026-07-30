@@ -28,3 +28,12 @@ auth:
   fallback_backend_key: null
   # When true, responses include X-Janus-Auth / X-Janus-Auth-Warning.
   # expose_janus_headers: false
+
+# Compatibility audit: /audit/start and /audit/report (Janus-native).
+# Bind sessions by client IP (sessionID=myIP) or public API key.
+audit:
+  enabled: true
+  session_ttl_minutes: 60
+  # Trust X-Forwarded-For / X-Real-IP from nginx (set 0 to ignore those headers).
+  trusted_proxy_hops: 1
+  max_events_per_session: 5000

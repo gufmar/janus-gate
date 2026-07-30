@@ -32,7 +32,7 @@ Proof of concept covering catalog **band 1 (Likely)**, **band 2 (Partial)**, and
 | Governance basics | `GET /governance/committee`, `/dreps`, `/dreps/{id}`, `/proposals` | `GET /committee_info`, `/drep_list`, `POST /drep_info`, `GET /proposal_list` |
 | Submit transaction | `POST /tx/submit` | `POST /submittx` |
 
-Plus Janus-native `GET /health` for probes and `GET /endpoints` for an HTML coverage overview (implemented routes are linked).
+Plus Janus-native `GET /health` for probes, `GET /endpoints` for an HTML coverage overview (implemented routes are linked), and `GET /audit/start` / `GET /audit/report` for a compatibility audit bound by client IP (`sessionID=myIP`) or public API key (no extra generated session id).
 
 Client-facing errors, 404 policy, and auth header quieting are described in [docs/api-comparison/fidelity.md](docs/api-comparison/fidelity.md).
 

@@ -84,11 +84,22 @@ class AuthConfig(BaseModel):
         return value.strip() if isinstance(value, str) else value
 
 
+class AuditConfig(BaseModel):
+    """Compatibility audit: bind sessions by client IP or public API key."""
+
+    enabled: bool = True
+    session_ttl_minutes: int = Field(default=60, ge=1, le=24 * 60)
+    # Number of reverse-proxy hops to peel from X-Forwarded-For (nginx = 1).
+    trusted_proxy_hops: int = Field(default=1, ge=0, le=10)
+    max_events_per_session: int = Field(default=5000, ge=1, le=100_000)
+
+
 class AppConfig(BaseModel):
     server: ServerConfig = Field(default_factory=ServerConfig)
     public_face: ProviderName
     backend: BackendConfig
     auth: AuthConfig = Field(default_factory=AuthConfig)
+    audit: AuditConfig = Field(default_factory=AuditConfig)
 
     @field_validator("backend", mode="before")
     @classmethod

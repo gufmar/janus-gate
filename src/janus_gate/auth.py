@@ -28,6 +28,8 @@ _SKIP_AUTH_PATHS = frozenset(
         "/docs/oauth2-redirect",
         "/redoc",
         "/openapi.json",
+        "/audit/start",
+        "/audit/report",
     }
 )
 

@@ -35,3 +35,7 @@ Secrets should come from the environment (`JANUS_BACKEND_API_KEY`), not from com
 ## Health
 
 `GET /health` is Janus-native. It is not part of Blockfrost or Koios and is intended for systemd and load-balancer checks.
+
+## Compatibility audit
+
+`GET /audit/start` and `GET /audit/report` are Janus-native. A session is bound either to the client IP (`?sessionID=myIP`, using `X-Forwarded-For` / `X-Real-IP` behind nginx) or to the public-face API key string itself. The same value is used to fetch the report (`/audit/report` from that IP, or `?sessionID=<key>`). Middleware records face traffic for active binds and labels each call ok / warn / fail / unknown against the endpoint catalog. Access logs include XFF and anonymized paths.
