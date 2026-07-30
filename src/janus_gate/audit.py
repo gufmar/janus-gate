@@ -17,7 +17,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import HTMLResponse, JSONResponse, Response
 
 from janus_gate import __version__
-from janus_gate.auth import extract_public_api_key, mask_api_key
+from janus_gate.auth import extract_public_api_key, mask_api_key, request_app_path
 from janus_gate.catalog import EndpointEntry, endpoints_for_face
 from janus_gate.config import AppConfig, ProviderName, public_url
 
@@ -292,7 +292,8 @@ class AuditMiddleware(BaseHTTPMiddleware):
         self._store = store
 
     async def dispatch(self, request: Request, call_next: Any) -> Response:
-        path = request.url.path
+        # Use scope path, not request.url.path (url includes ASGI root_path / base_path).
+        path = request_app_path(request)
         client_ip = client_ip_from_request(
             request,
             trusted_proxy_hops=self._config.audit.trusted_proxy_hops,
@@ -304,7 +305,9 @@ class AuditMiddleware(BaseHTTPMiddleware):
 
         safe_path = anonymize_path(path)
         safe_query = anonymize_query(request.url.query)
-        display = safe_path + (f"?{safe_query}" if safe_query else "")
+        # Log the public path when mounted under base_path (e.g. /janus/...).
+        log_path = public_url(self._config.server.base_path, safe_path)
+        display = log_path + (f"?{safe_query}" if safe_query else "")
         access_logger.info(
             '%s xff="%s" "%s %s" %s %.1fms',
             client_ip,

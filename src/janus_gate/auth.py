@@ -108,6 +108,20 @@ def mask_api_key(key: str | None) -> str | None:
     return f"{key[:10]}...{key[-10:]}"
 
 
+def request_app_path(request: Request) -> str:
+    """Path used for routing, without ASGI root_path (e.g. server.base_path).
+
+    ``request.url.path`` prepends root_path, which breaks skip-lists and catalog
+    matching when Janus is mounted under a public prefix such as ``/janus``.
+    """
+    path = request.scope.get("path") or "/"
+    if not isinstance(path, str):
+        path = str(path)
+    if not path.startswith("/"):
+        return f"/{path}"
+    return path
+
+
 def auth_health_payload(auth: AuthConfig) -> dict[str, Any]:
     mappings = []
     for item in auth.key_map:
@@ -145,7 +159,7 @@ class ApiKeyMappingMiddleware(BaseHTTPMiddleware):
         self._config = config
 
     async def dispatch(self, request: Request, call_next: Any) -> Response:
-        path = request.url.path
+        path = request_app_path(request)
         if path in _SKIP_AUTH_PATHS:
             return await call_next(request)
 

@@ -28,9 +28,9 @@ from janus_gate.config import (
 )
 
 
-def _config(**audit_kwargs: object) -> AppConfig:
+def _config(*, base_path: str = "", **audit_kwargs: object) -> AppConfig:
     return AppConfig(
-        server=ServerConfig(host="127.0.0.1", port=8080),
+        server=ServerConfig(host="127.0.0.1", port=8080, base_path=base_path),
         public_face=ProviderName.BLOCKFROST,
         backend=BackendConfig(
             provider=ProviderName.KOIOS,
@@ -207,3 +207,33 @@ def test_audit_store_replaces_session() -> None:
     second = store.start(session_id="1.2.3.4", bind_kind=AuditBindKind.IP)
     assert store.get("1.2.3.4") is second
     assert first is not second
+
+
+def test_audit_matches_catalog_with_base_path() -> None:
+    """request.url.path includes root_path; catalog matching must use scope path."""
+    with TestClient(create_app(_config(base_path="/janus"))) as client:
+        started = client.get(
+            "/audit/start",
+            params={"sessionID": "myIP", "format": "json"},
+            headers={"X-Real-IP": "203.0.113.77"},
+        )
+        assert started.status_code == 200
+        # url.path may be /janus/... while the route is still /network
+        assert client.get(
+            "/network",
+            headers={"X-Real-IP": "203.0.113.77"},
+        ).status_code == 404
+
+        report = client.get(
+            "/audit/report",
+            params={"format": "json"},
+            headers={"X-Real-IP": "203.0.113.77"},
+        )
+        assert report.status_code == 200
+        events = report.json()["events"]
+        assert len(events) == 1
+        assert events[0]["path"] == "/network"
+        assert events[0]["label"] == AuditLabel.FAIL.value
+        assert "not implemented" in events[0]["description"].lower()
+        assert not any(e["path"].startswith("/janus") for e in events)
+        assert not any("/audit/" in e["path"] for e in events)
