@@ -292,8 +292,8 @@ class AuditMiddleware(BaseHTTPMiddleware):
         self._store = store
 
     async def dispatch(self, request: Request, call_next: Any) -> Response:
-        # Use scope path, not request.url.path (url includes ASGI root_path / base_path).
-        path = request_app_path(request)
+        # Strip server.base_path / ASGI root_path (e.g. /janus/blocks/... -> /blocks/...).
+        path = request_app_path(request, self._config.server.base_path)
         client_ip = client_ip_from_request(
             request,
             trusted_proxy_hops=self._config.audit.trusted_proxy_hops,

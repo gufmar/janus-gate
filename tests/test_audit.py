@@ -17,6 +17,7 @@ from janus_gate.audit import (
     label_event,
     match_catalog_entry,
 )
+from janus_gate.auth import request_app_path
 from janus_gate.catalog import EndpointEntry
 from janus_gate.config import (
     AppConfig,
@@ -209,23 +210,38 @@ def test_audit_store_replaces_session() -> None:
     assert first is not second
 
 
+def test_request_app_path_strips_root_and_base() -> None:
+    request = MagicMock()
+    request.scope = {
+        "path": "/janus/blocks/latest",
+        "root_path": "/janus",
+    }
+    assert request_app_path(request, "/janus") == "/blocks/latest"
+    assert request_app_path(request, "") == "/blocks/latest"
+
+    request.scope = {"path": "/blocks/latest", "root_path": "/janus"}
+    assert request_app_path(request, "/janus") == "/blocks/latest"
+
+    request.scope = {"path": "/janus/audit/start", "root_path": "/janus"}
+    assert request_app_path(request, "/janus") == "/audit/start"
+
+
 def test_audit_matches_catalog_with_base_path() -> None:
-    """request.url.path includes root_path; catalog matching must use scope path."""
+    """Nginx may forward /janus/... while root_path still lets FastAPI route it."""
     with TestClient(create_app(_config(base_path="/janus"))) as client:
         started = client.get(
-            "/audit/start",
+            "/janus/audit/start",
             params={"sessionID": "myIP", "format": "json"},
             headers={"X-Real-IP": "203.0.113.77"},
         )
         assert started.status_code == 200
-        # url.path may be /janus/... while the route is still /network
         assert client.get(
-            "/network",
+            "/janus/network",
             headers={"X-Real-IP": "203.0.113.77"},
         ).status_code == 404
 
         report = client.get(
-            "/audit/report",
+            "/janus/audit/report",
             params={"format": "json"},
             headers={"X-Real-IP": "203.0.113.77"},
         )

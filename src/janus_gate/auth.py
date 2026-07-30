@@ -108,17 +108,30 @@ def mask_api_key(key: str | None) -> str | None:
     return f"{key[:10]}...{key[-10:]}"
 
 
-def request_app_path(request: Request) -> str:
-    """Path used for routing, without ASGI root_path (e.g. server.base_path).
+def request_app_path(request: Request, base_path: str = "") -> str:
+    """Face/router path with public mount prefix removed.
 
-    ``request.url.path`` prepends root_path, which breaks skip-lists and catalog
-    matching when Janus is mounted under a public prefix such as ``/janus``.
+    When ``server.base_path`` / ASGI ``root_path`` is ``/janus``, nginx may forward
+    ``/janus/blocks/latest`` while FastAPI still routes it (via root_path). Catalog
+    matching and audit skip-lists need the face path ``/blocks/latest``.
     """
     path = request.scope.get("path") or "/"
     if not isinstance(path, str):
         path = str(path)
     if not path.startswith("/"):
-        return f"/{path}"
+        path = f"/{path}"
+
+    prefixes: list[str] = []
+    for raw in (base_path, request.scope.get("root_path") or ""):
+        text = str(raw).strip().rstrip("/")
+        if text and text not in prefixes:
+            prefixes.append(text)
+
+    for prefix in prefixes:
+        if path == prefix:
+            return "/"
+        if path.startswith(f"{prefix}/"):
+            return path[len(prefix) :] or "/"
     return path
 
 
@@ -159,7 +172,7 @@ class ApiKeyMappingMiddleware(BaseHTTPMiddleware):
         self._config = config
 
     async def dispatch(self, request: Request, call_next: Any) -> Response:
-        path = request_app_path(request)
+        path = request_app_path(request, self._config.server.base_path)
         if path in _SKIP_AUTH_PATHS:
             return await call_next(request)
 
