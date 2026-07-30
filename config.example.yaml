@@ -7,13 +7,18 @@ server:
   # Leave empty for root mount. Example: /janus
   # base_path: /janus
 
-# Public API surface clients talk to: blockfrost | koios
+# Public API face clients talk to: blockfrost | koios
 public_face: blockfrost
 
 backend:
-  # Upstream data source: must differ from public_face
+  # Data source: blockfrost | koios | dbsync (Phase 2) | ogmios | yaci (later)
+  # Usual mode: API mirror different from public_face (translate).
+  # Same face+API source only when passthrough: true (explicit proxy for testing).
   provider: koios
   base_url: https://api.koios.rest/api/v1
+  # passthrough: false
+  # For dbsync (not implemented yet): omit base_url, set dsn instead.
+  # dsn: postgresql://user:pass@localhost:5432/dbsync
 
 # Map public-face API keys to backend API keys.
 # Blockfrost face: clients send header `project_id: <public_key>`

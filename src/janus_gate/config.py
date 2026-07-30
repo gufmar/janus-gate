@@ -11,9 +11,34 @@ import yaml
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 
-class ProviderName(StrEnum):
+class FaceName(StrEnum):
+    """Public HTTP API face clients talk to."""
+
     BLOCKFROST = "blockfrost"
     KOIOS = "koios"
+
+
+# Backward-compatible alias used by faces, auth, catalog, and registry.
+ProviderName = FaceName
+
+
+class BackendSource(StrEnum):
+    """Upstream data source that implements BackendProvider ops."""
+
+    BLOCKFROST = "blockfrost"
+    KOIOS = "koios"
+    DBSYNC = "dbsync"
+    # Reserved for later phases; factory raises NotImplementedError.
+    OGMIOS = "ogmios"
+    YACI = "yaci"
+
+
+API_MIRROR_SOURCES: frozenset[BackendSource] = frozenset(
+    {BackendSource.BLOCKFROST, BackendSource.KOIOS}
+)
+DATA_SOURCES: frozenset[BackendSource] = frozenset(
+    {BackendSource.DBSYNC, BackendSource.OGMIOS, BackendSource.YACI}
+)
 
 
 class ServerConfig(BaseModel):
@@ -37,10 +62,23 @@ class ServerConfig(BaseModel):
 
 
 class BackendConfig(BaseModel):
-    provider: ProviderName
-    base_url: str
+    provider: BackendSource
+    # Required for API mirrors (blockfrost / koios). Optional for data sources.
+    base_url: str | None = None
+    # Required for dbsync (Phase 2). Ignored by HTTP mirrors.
+    dsn: str | None = None
+    # Allow public_face == API mirror source (explicit same-provider proxy).
+    passthrough: bool = False
     # Deprecated alias for auth.fallback_backend_key (kept for older configs).
     api_key: str | None = None
+
+    @field_validator("provider", mode="before")
+    @classmethod
+    def coerce_provider(cls, value: Any) -> Any:
+        # Accept FaceName / ProviderName values used in older call sites.
+        if isinstance(value, StrEnum):
+            return value.value
+        return value
 
 
 class KeyMapping(BaseModel):
@@ -96,23 +134,36 @@ class AuditConfig(BaseModel):
 
 class AppConfig(BaseModel):
     server: ServerConfig = Field(default_factory=ServerConfig)
-    public_face: ProviderName
+    public_face: FaceName
     backend: BackendConfig
     auth: AuthConfig = Field(default_factory=AuthConfig)
     audit: AuditConfig = Field(default_factory=AuditConfig)
 
-    @field_validator("backend", mode="before")
-    @classmethod
-    def _coerce_backend(cls, value: Any) -> Any:
-        return value
-
     @model_validator(mode="after")
-    def face_must_differ_from_backend(self) -> AppConfig:
-        if self.public_face == self.backend.provider:
-            raise ValueError(
-                "public_face and backend.provider must differ "
-                f"(both are {self.public_face!r}); Janus translates between providers"
-            )
+    def validate_face_and_backend(self) -> AppConfig:
+        face = self.public_face.value
+        source = self.backend.provider
+
+        if source in API_MIRROR_SOURCES:
+            if not (self.backend.base_url or "").strip():
+                raise ValueError(
+                    "backend.base_url is required for API mirror backends "
+                    f"({source.value})"
+                )
+            if face == source.value:
+                if not self.backend.passthrough:
+                    raise ValueError(
+                        "public_face and backend.provider are the same "
+                        f"({face!r}); set backend.passthrough: true for an "
+                        "explicit same-provider proxy, or choose a different backend"
+                    )
+        elif source is BackendSource.DBSYNC:
+            if not (self.backend.dsn or "").strip():
+                raise ValueError("backend.dsn is required for dbsync")
+        elif source in (BackendSource.OGMIOS, BackendSource.YACI):
+            # Allow listing in config enums; factory still rejects until Phase 5.
+            pass
+
         return self
 
     @model_validator(mode="after")
@@ -122,9 +173,9 @@ class AppConfig(BaseModel):
         return self
 
 
-DEFAULT_BASE_URLS: dict[ProviderName, str] = {
-    ProviderName.BLOCKFROST: "https://cardano-mainnet.blockfrost.io/api/v0",
-    ProviderName.KOIOS: "https://api.koios.rest/api/v1",
+DEFAULT_BASE_URLS: dict[BackendSource, str] = {
+    BackendSource.BLOCKFROST: "https://cardano-mainnet.blockfrost.io/api/v0",
+    BackendSource.KOIOS: "https://api.koios.rest/api/v1",
 }
 
 
@@ -144,6 +195,10 @@ def _apply_env_overrides(data: dict[str, Any]) -> dict[str, Any]:
     base_url = os.environ.get("JANUS_BACKEND_BASE_URL")
     if base_url:
         backend["base_url"] = base_url
+
+    dsn = os.environ.get("JANUS_BACKEND_DSN")
+    if dsn:
+        backend["dsn"] = dsn
 
     provider = os.environ.get("JANUS_BACKEND_PROVIDER")
     if provider:
@@ -174,10 +229,12 @@ def _fill_default_base_url(data: dict[str, Any]) -> dict[str, Any]:
     backend = data.get("backend")
     if isinstance(backend, dict) and not backend.get("base_url"):
         provider = backend.get("provider")
-        if provider in DEFAULT_BASE_URLS:
-            backend["base_url"] = DEFAULT_BASE_URLS[ProviderName(provider)]
-        elif provider in {p.value for p in ProviderName}:
-            backend["base_url"] = DEFAULT_BASE_URLS[ProviderName(provider)]
+        try:
+            source = BackendSource(provider)
+        except (TypeError, ValueError):
+            return data
+        if source in DEFAULT_BASE_URLS:
+            backend["base_url"] = DEFAULT_BASE_URLS[source]
     return data
 
 
@@ -203,8 +260,17 @@ def load_config(path: str | Path | None = None) -> AppConfig:
         raise ValueError("backend is required")
     if "provider" not in data["backend"]:
         raise ValueError("backend.provider is required")
-    if not data["backend"].get("base_url"):
+
+    provider = data["backend"].get("provider")
+    try:
+        source = BackendSource(provider)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Unsupported backend.provider: {provider!r}") from exc
+
+    if source in API_MIRROR_SOURCES and not data["backend"].get("base_url"):
         raise ValueError("backend.base_url is required")
+    if source is BackendSource.DBSYNC and not data["backend"].get("dsn"):
+        raise ValueError("backend.dsn is required for dbsync")
 
     return AppConfig.model_validate(data)
 

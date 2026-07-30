@@ -7,13 +7,13 @@ from collections import defaultdict
 
 from janus_gate import __version__
 from janus_gate.catalog import EndpointEntry, endpoints_for_face
-from janus_gate.config import ProviderName, public_url
+from janus_gate.config import BackendSource, ProviderName, public_url
 
 
 def render_home_html(
     *,
     public_face: ProviderName,
-    backend: ProviderName,
+    backend: BackendSource,
     base_path: str = "",
 ) -> str:
     endpoints_href = public_url(base_path, "/endpoints")
@@ -133,7 +133,7 @@ def render_home_html(
 def render_endpoints_html(
     *,
     public_face: ProviderName,
-    backend: ProviderName,
+    backend: BackendSource,
     base_path: str = "",
 ) -> str:
     entries = endpoints_for_face(public_face)

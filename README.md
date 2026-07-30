@@ -36,7 +36,7 @@ Plus Janus-native `GET /` (home), `GET /health` for probes, `GET /endpoints` for
 
 Client-facing errors, 404 policy, and auth header quieting are described in [docs/api-comparison/fidelity.md](docs/api-comparison/fidelity.md).
 
-See [docs/architecture.md](docs/architecture.md), [docs/api-comparison/overview.md](docs/api-comparison/overview.md), and the full triage map in [docs/api-comparison/endpoint-catalog.md](docs/api-comparison/endpoint-catalog.md).
+See [docs/architecture.md](docs/architecture.md), [docs/product-roadmap.md](docs/product-roadmap.md), [docs/api-comparison/overview.md](docs/api-comparison/overview.md), and the full triage map in [docs/api-comparison/endpoint-catalog.md](docs/api-comparison/endpoint-catalog.md).
 
 ## Requirements
 

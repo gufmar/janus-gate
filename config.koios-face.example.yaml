@@ -6,8 +6,11 @@ server:
 public_face: koios
 
 backend:
+  # API mirror different from public_face (translate). See config.example.yaml.
   provider: blockfrost
   base_url: https://cardano-mainnet.blockfrost.io/api/v0
+  # passthrough: false
+  # dsn: postgresql://...   # for backend.provider: dbsync (Phase 2)
 
 auth:
   key_map: []
