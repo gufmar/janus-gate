@@ -34,7 +34,7 @@ Secrets should come from the environment (`JANUS_BACKEND_API_KEY`), not from com
 
 ## Health
 
-`GET /health` is Janus-native. It is not part of Blockfrost or Koios and is intended for systemd and load-balancer checks.
+`GET /` and `GET /health` are Janus-native. The home page links to coverage, audit, and health. `/health` is intended for systemd and load-balancer checks.
 
 ## Compatibility audit
 

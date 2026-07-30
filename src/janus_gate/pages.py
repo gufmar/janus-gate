@@ -10,6 +10,126 @@ from janus_gate.catalog import EndpointEntry, endpoints_for_face
 from janus_gate.config import ProviderName, public_url
 
 
+def render_home_html(
+    *,
+    public_face: ProviderName,
+    backend: ProviderName,
+    base_path: str = "",
+) -> str:
+    endpoints_href = public_url(base_path, "/endpoints")
+    audit_href = public_url(base_path, "/audit/start")
+    health_href = public_url(base_path, "/health")
+    docs_href = public_url(base_path, "/docs")
+    base_note = html.escape(base_path or "/")
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Janus Gate</title>
+  <style>
+    :root {{
+      --bg: #f4f1ea;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #d6d3d1;
+      --link: #1d4ed8;
+    }}
+    * {{ box-sizing: border-box; }}
+    body {{
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.45;
+    }}
+    main {{
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 2rem 1.25rem 3rem;
+    }}
+    h1 {{
+      font-size: 1.75rem;
+      margin: 0 0 0.35rem;
+    }}
+    .meta {{
+      color: var(--muted);
+      margin: 0 0 1.5rem;
+    }}
+    .meta a {{ color: var(--link); }}
+    ul {{
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }}
+    li {{
+      background: #fff;
+      border: 1px solid var(--line);
+      margin: 0 0 0.65rem;
+      padding: 0.85rem 1rem;
+    }}
+    li a {{
+      color: var(--link);
+      font-weight: 600;
+      text-decoration: none;
+    }}
+    li a:hover {{ text-decoration: underline; }}
+    li p {{
+      margin: 0.35rem 0 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }}
+    code {{
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 0.88em;
+    }}
+    .note {{
+      margin-top: 1.5rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Janus Gate</h1>
+    <p class="meta">
+      version {html.escape(__version__)}
+      · public face <strong>{html.escape(public_face.value)}</strong>
+      · backend <strong>{html.escape(backend.value)}</strong>
+      · base path <strong>{base_note}</strong>
+    </p>
+    <p>
+      Bidirectional Cardano API compatibility gateway. Clients keep one provider
+      face while Janus fulfills requests from the other.
+    </p>
+    <ul>
+      <li>
+        <a href="{html.escape(endpoints_href)}">Endpoint coverage</a>
+        <p>Which face routes are implemented (<code>{html.escape(endpoints_href)}</code>).</p>
+      </li>
+      <li>
+        <a href="{html.escape(audit_href)}">Compatibility audit</a>
+        <p>Record live client traffic and review ok / warn / fail labels
+        (<code>{html.escape(audit_href)}</code>).</p>
+      </li>
+      <li>
+        <a href="{html.escape(health_href)}">Health</a>
+        <p>JSON probe for operators and load balancers
+        (<code>{html.escape(health_href)}</code>).</p>
+      </li>
+    </ul>
+    <p class="note">
+      Also available: <a href="{html.escape(docs_href)}">OpenAPI docs</a>.
+      These pages are Janus-native and are not part of the Blockfrost or Koios face.
+    </p>
+  </main>
+</body>
+</html>
+"""
+
+
 def render_endpoints_html(
     *,
     public_face: ProviderName,

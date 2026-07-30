@@ -29,6 +29,7 @@ SESSION_ID_MY_IP = "myIP"
 
 _SKIP_AUDIT_PATHS = frozenset(
     {
+        "/",
         "/health",
         "/endpoints",
         "/docs",

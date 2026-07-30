@@ -24,7 +24,7 @@ from janus_gate.config import AppConfig, ProviderName, public_url
 from janus_gate.faces.blockfrost import build_blockfrost_router
 from janus_gate.faces.errors import register_face_exception_handlers
 from janus_gate.faces.koios import build_koios_router
-from janus_gate.pages import render_endpoints_html
+from janus_gate.pages import render_endpoints_html, render_home_html
 from janus_gate.providers import create_backend
 
 
@@ -61,6 +61,14 @@ def create_app(config: AppConfig) -> FastAPI:
     app.add_middleware(AuditMiddleware, config=config, store=audit_store)
     register_face_exception_handlers(app, config.public_face)
 
+    @app.get("/", response_class=HTMLResponse, include_in_schema=False)
+    async def home() -> str:
+        return render_home_html(
+            public_face=config.public_face,
+            backend=config.backend.provider,
+            base_path=config.server.base_path,
+        )
+
     @app.get("/health")
     async def health() -> dict[str, Any]:
         return {
@@ -69,6 +77,7 @@ def create_app(config: AppConfig) -> FastAPI:
             "public_face": config.public_face.value,
             "backend": config.backend.provider.value,
             "base_path": config.server.base_path or "/",
+            "home": public_url(config.server.base_path, "/"),
             "endpoints": public_url(config.server.base_path, "/endpoints"),
             "audit": public_url(config.server.base_path, "/audit/start"),
             "auth": auth_health_payload(config.auth),

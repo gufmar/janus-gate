@@ -22,6 +22,7 @@ _auth_fallback: str | None = None
 # Janus-native / docs paths: no public-key mapping warnings.
 _SKIP_AUTH_PATHS = frozenset(
     {
+        "/",
         "/health",
         "/endpoints",
         "/docs",
