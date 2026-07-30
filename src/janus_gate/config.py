@@ -106,6 +106,8 @@ class AuthConfig(BaseModel):
     # When true, set X-Janus-Auth / X-Janus-Auth-Warning on responses.
     # Default false so the public face looks closer to native BF/Koios.
     expose_janus_headers: bool = False
+    # When true, log masked public/backend keys per face request to stdout.
+    debug_log_keys: bool = False
 
     @field_validator("key_map", mode="before")
     @classmethod
@@ -120,6 +122,35 @@ class AuthConfig(BaseModel):
         if isinstance(value, str) and not value.strip():
             return None
         return value.strip() if isinstance(value, str) else value
+
+
+class AccessDenyMode(StrEnum):
+    """How to apply access.allowed_ips when the list is non-empty."""
+
+    # Block face API + audit; keep home, /endpoints, OpenAPI, /health.
+    ENDPOINTS = "endpoints"
+    # Restrict the entire service to allowed IPs.
+    STRICT = "strict"
+
+
+class AccessConfig(BaseModel):
+    """Optional client IP allowlist for public Janus traffic."""
+
+    # Empty = no IP filter. Entries may be single IPs or CIDR networks.
+    allowed_ips: list[str] = Field(default_factory=list)
+    deny: AccessDenyMode = AccessDenyMode.ENDPOINTS
+    # Reverse-proxy hops for X-Forwarded-For / X-Real-IP (same idea as audit).
+    trusted_proxy_hops: int | None = Field(default=None, ge=0, le=10)
+
+    @field_validator("allowed_ips", mode="before")
+    @classmethod
+    def empty_allowed_ips(cls, value: Any) -> Any:
+        return [] if value is None else value
+
+    @field_validator("allowed_ips")
+    @classmethod
+    def strip_allowed_ips(cls, value: list[str]) -> list[str]:
+        return [item.strip() for item in value if isinstance(item, str) and item.strip()]
 
 
 class AuditConfig(BaseModel):
@@ -137,6 +168,7 @@ class AppConfig(BaseModel):
     public_face: FaceName
     backend: BackendConfig
     auth: AuthConfig = Field(default_factory=AuthConfig)
+    access: AccessConfig = Field(default_factory=AccessConfig)
     audit: AuditConfig = Field(default_factory=AuditConfig)
 
     @model_validator(mode="after")
@@ -207,6 +239,17 @@ def _apply_env_overrides(data: dict[str, Any]) -> dict[str, Any]:
     face = os.environ.get("JANUS_PUBLIC_FACE")
     if face:
         data["public_face"] = face
+
+    debug_keys = os.environ.get("JANUS_AUTH_DEBUG_LOG_KEYS")
+    if debug_keys is not None:
+        auth = data.setdefault("auth", {})
+        if isinstance(auth, dict):
+            auth["debug_log_keys"] = debug_keys.strip().lower() in {
+                "1",
+                "true",
+                "yes",
+                "on",
+            }
 
     host = os.environ.get("JANUS_HOST")
     port = os.environ.get("JANUS_PORT")

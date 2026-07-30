@@ -97,7 +97,7 @@ def extract_public_api_key(request: Request, public_face: ProviderName) -> str |
 
 
 def mask_api_key(key: str | None) -> str | None:
-    """Show first/last 10 characters for health diagnostics."""
+    """Mask API keys for logs (never log full secrets)."""
     if key is None:
         return None
     if key == "":
@@ -137,24 +137,12 @@ def request_app_path(request: Request, base_path: str = "") -> str:
 
 
 def auth_health_payload(auth: AuthConfig) -> dict[str, Any]:
-    mappings = []
-    for item in auth.key_map:
-        mappings.append(
-            {
-                "label": item.label,
-                "public_key_preview": mask_api_key(item.public_key),
-                "backend_key_preview": mask_api_key(item.backend_key),
-            }
-        )
-    fallback = auth.fallback_backend_key
+    """Non-secret auth status for /health (no key material or previews)."""
     return {
-        "mappings": mappings,
-        "fallback_backend_key_preview": (
-            "(none / anonymous upstream)"
-            if not fallback
-            else mask_api_key(fallback)
-        ),
+        "key_map_count": len(auth.key_map),
+        "has_fallback_backend_key": bool(auth.fallback_backend_key),
         "expose_janus_headers": auth.expose_janus_headers,
+        "debug_log_keys": auth.debug_log_keys,
     }
 
 
@@ -163,6 +151,14 @@ def _normalize_key(value: str | None) -> str | None:
         return None
     text = value.strip()
     return text or None
+
+
+def _resolution_label(resolved: ResolvedAuth) -> str:
+    if resolved.matched:
+        return "mapped"
+    if resolved.backend_key:
+        return "fallback"
+    return "anonymous"
 
 
 class ApiKeyMappingMiddleware(BaseHTTPMiddleware):
@@ -181,7 +177,19 @@ class ApiKeyMappingMiddleware(BaseHTTPMiddleware):
         resolved = resolve_auth(self._config.auth, public_key)
         request.state.auth = resolved
 
-        if resolved.used_fallback:
+        if self._config.auth.debug_log_keys:
+            logger.info(
+                "auth keys %s %s face=%s resolution=%s label=%s "
+                "public=%s backend=%s",
+                request.method,
+                path,
+                self._config.public_face.value,
+                _resolution_label(resolved),
+                resolved.label or "-",
+                mask_api_key(resolved.public_key) or "(missing)",
+                mask_api_key(resolved.backend_key) or "(none)",
+            )
+        elif resolved.used_fallback:
             logger.warning(
                 "No matching public API key for %s face (key %s); "
                 "using fallback backend credentials%s",

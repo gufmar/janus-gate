@@ -52,7 +52,9 @@ Phase 3+ will add a `BackendProvider` wrapper (failover / shadow / consensus) in
 
 ## Health and audit
 
-- `GET /` and `GET /health` are Janus-native.
+- `GET /` and `GET /health` are Janus-native. `/health` reports status, face/backend names, and non-secret auth flags (`key_map_count`, `has_fallback_backend_key`); it never returns API key previews.
+- Set `auth.debug_log_keys: true` (or `JANUS_AUTH_DEBUG_LOG_KEYS=1`) to log masked public/backend keys per face request to stdout.
+- Optional `access.allowed_ips` with `deny: endpoints` (face APIs + audit blocked; home / endpoints / OpenAPI / health open) or `deny: strict` (entire service).
 - `GET /endpoints` lists face coverage.
 - `GET /audit/start` and `GET /audit/report` bind sessions by client IP or public API key and label traffic against the catalog.
 

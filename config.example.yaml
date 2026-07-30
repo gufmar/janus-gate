@@ -33,6 +33,19 @@ auth:
   fallback_backend_key: null
   # When true, responses include X-Janus-Auth / X-Janus-Auth-Warning.
   # expose_janus_headers: false
+  # When true, log masked public/backend keys for each face request to stdout.
+  # debug_log_keys: false
+
+# Optional client IP allowlist. Empty / omitted = no IP filter.
+# access:
+#   allowed_ips:
+#     - 203.0.113.10
+#     - 10.0.0.0/8
+#   # endpoints: block face APIs (+ audit); keep /, /endpoints, OpenAPI, /health
+#   # strict: restrict the entire service to allowed_ips
+#   deny: endpoints
+#   # Optional override; defaults to audit.trusted_proxy_hops
+#   # trusted_proxy_hops: 1
 
 # Compatibility audit: /audit/start and /audit/report (Janus-native).
 # Bind sessions by client IP (sessionID=myIP) or public API key.

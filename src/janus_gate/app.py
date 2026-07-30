@@ -9,6 +9,7 @@ from fastapi import FastAPI, Query, Request
 from fastapi.responses import HTMLResponse, Response
 
 from janus_gate import __version__
+from janus_gate.access import AccessMiddleware
 from janus_gate.audit import (
     AuditMiddleware,
     AuditStore,
@@ -56,9 +57,10 @@ def create_app(config: AppConfig) -> FastAPI:
         root_path=config.server.base_path,
         lifespan=lifespan,
     )
-    # Starlette applies middleware in reverse add order: Audit runs outermost.
+    # Starlette applies middleware in reverse add order: Access runs outermost.
     app.add_middleware(ApiKeyMappingMiddleware, config=config)
     app.add_middleware(AuditMiddleware, config=config, store=audit_store)
+    app.add_middleware(AccessMiddleware, config=config)
     register_face_exception_handlers(app, config.public_face)
 
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)
