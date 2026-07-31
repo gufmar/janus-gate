@@ -29,6 +29,22 @@ class BackendProvider(Protocol):
 
     async def get_epoch_parameters(self, number: int | None = None) -> Any: ...
 
+    async def get_epochs_next(
+        self,
+        number: int,
+        *,
+        count: int = 100,
+        page: int = 1,
+    ) -> Any: ...
+
+    async def get_epochs_previous(
+        self,
+        number: int,
+        *,
+        count: int = 100,
+        page: int = 1,
+    ) -> Any: ...
+
     async def get_block(self, hash_or_number: str) -> Any: ...
 
     async def get_block_transactions(

@@ -62,8 +62,8 @@ BLOCKFROST_ENDPOINTS: tuple[EndpointEntry, ...] = (
     _bf("GET", "/epochs/latest/parameters", "Latest epoch parameters", "Epochs", implemented=True, href="/epochs/latest/parameters"),
     _bf("GET", "/epochs/{number}", "Specific epoch", "Epochs", implemented=True, href="/epochs/{number}"),
     _bf("GET", "/epochs/{number}/parameters", "Epoch parameters", "Epochs", implemented=True, href="/epochs/{number}/parameters"),
-    _bf("GET", "/epochs/{number}/next", "Next epochs", "Epochs"),
-    _bf("GET", "/epochs/{number}/previous", "Previous epochs", "Epochs"),
+    _bf("GET", "/epochs/{number}/next", "Next epochs", "Epochs", implemented=True, href="/epochs/{number}/next"),
+    _bf("GET", "/epochs/{number}/previous", "Previous epochs", "Epochs", implemented=True, href="/epochs/{number}/previous"),
     _bf("GET", "/epochs/{number}/stakes", "Epoch stake distribution", "Epochs"),
     _bf("GET", "/epochs/{number}/blocks", "Epoch blocks", "Epochs", implemented=True, href="/epochs/{number}/blocks"),
     # Transactions

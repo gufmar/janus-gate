@@ -13,6 +13,8 @@ __all__ = [
     "fetch_block_as",
     "fetch_epoch_as",
     "fetch_epoch_parameters_as",
+    "fetch_epochs_next_as",
+    "fetch_epochs_previous_as",
     "fetch_genesis_as",
     "fetch_pool_as",
     "fetch_pools_as",

@@ -28,6 +28,8 @@ from janus_gate.mappers.registry import (
     fetch_epoch_as,
     fetch_epoch_blocks_as,
     fetch_epoch_parameters_as,
+    fetch_epochs_next_as,
+    fetch_epochs_previous_as,
     fetch_genesis_as,
     fetch_metadata_by_label_as,
     fetch_metadata_labels_as,
@@ -143,6 +145,40 @@ def build_blockfrost_router() -> APIRouter:
         return await run_upstream(
             fetch_epoch_parameters_as(
                 ProviderName.BLOCKFROST, request.app.state.backend, number
+            )
+        )
+
+    @router.get("/epochs/{number}/next")
+    async def epochs_next(
+        number: int,
+        request: Request,
+        count: int = Query(default=100, ge=1, le=100),
+        page: int = Query(default=1, ge=1),
+    ):
+        return await run_upstream(
+            fetch_epochs_next_as(
+                ProviderName.BLOCKFROST,
+                request.app.state.backend,
+                number,
+                count=count,
+                page=page,
+            )
+        )
+
+    @router.get("/epochs/{number}/previous")
+    async def epochs_previous(
+        number: int,
+        request: Request,
+        count: int = Query(default=100, ge=1, le=100),
+        page: int = Query(default=1, ge=1),
+    ):
+        return await run_upstream(
+            fetch_epochs_previous_as(
+                ProviderName.BLOCKFROST,
+                request.app.state.backend,
+                number,
+                count=count,
+                page=page,
             )
         )
 

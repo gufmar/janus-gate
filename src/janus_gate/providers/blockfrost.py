@@ -38,6 +38,32 @@ class BlockfrostProvider(HttpProvider):
         )
         return await self.request("GET", path)
 
+    async def get_epochs_next(
+        self,
+        number: int,
+        *,
+        count: int = 100,
+        page: int = 1,
+    ) -> Any:
+        return await self.request(
+            "GET",
+            f"/epochs/{number}/next",
+            params={"count": count, "page": page},
+        )
+
+    async def get_epochs_previous(
+        self,
+        number: int,
+        *,
+        count: int = 100,
+        page: int = 1,
+    ) -> Any:
+        return await self.request(
+            "GET",
+            f"/epochs/{number}/previous",
+            params={"count": count, "page": page},
+        )
+
     async def get_block(self, hash_or_number: str) -> Any:
         return await self.request("GET", f"/blocks/{hash_or_number}")
 

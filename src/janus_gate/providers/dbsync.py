@@ -266,6 +266,51 @@ class DbSyncProvider:
             raise _not_found("The requested component has not been found.")
         return row
 
+    async def get_epochs_next(
+        self,
+        number: int,
+        *,
+        count: int = 100,
+        page: int = 1,
+    ) -> Any:
+        return await self._epochs_adjacent(number, direction=1, count=count, page=page)
+
+    async def get_epochs_previous(
+        self,
+        number: int,
+        *,
+        count: int = 100,
+        page: int = 1,
+    ) -> Any:
+        return await self._epochs_adjacent(number, direction=-1, count=count, page=page)
+
+    async def _epochs_adjacent(
+        self,
+        number: int,
+        *,
+        direction: int,
+        count: int,
+        page: int,
+    ) -> list[dict[str, Any]]:
+        tip = await self.get_tip()
+        tip_epoch = int(tip["epoch_no"])
+        start = number + direction * (1 + (page - 1) * count)
+        out: list[dict[str, Any]] = []
+        for i in range(count):
+            epoch_no = start + direction * i
+            if epoch_no < 0 or epoch_no > tip_epoch:
+                break
+            try:
+                row = await self.get_epoch(epoch_no)
+            except ProviderError as exc:
+                if exc.status_code == 404:
+                    break
+                raise
+            if not isinstance(row, dict):
+                break
+            out.append(row)
+        return out
+
     async def get_epoch_parameters(self, number: int | None = None) -> Any:
         if number is None:
             row = await self._fetchrow(

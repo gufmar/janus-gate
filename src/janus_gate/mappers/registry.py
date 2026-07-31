@@ -53,6 +53,48 @@ async def fetch_epoch_parameters_as(
     return adapt_to_face(face, backend.name, concepts.EPOCH_PARAMETERS, raw)
 
 
+async def fetch_epochs_next_as(
+    face: ProviderName,
+    backend: BackendProvider,
+    number: int,
+    *,
+    count: int = 100,
+    page: int = 1,
+) -> Any:
+    raw = await backend.get_epochs_next(number, count=count, page=page)
+    return _adapt_epoch_list(face, backend.name, raw)
+
+
+async def fetch_epochs_previous_as(
+    face: ProviderName,
+    backend: BackendProvider,
+    number: int,
+    *,
+    count: int = 100,
+    page: int = 1,
+) -> Any:
+    raw = await backend.get_epochs_previous(number, count=count, page=page)
+    return _adapt_epoch_list(face, backend.name, raw)
+
+
+def _adapt_epoch_list(face: ProviderName, source: str, raw: Any) -> list[Any]:
+    if not isinstance(raw, list):
+        raise TypeError("epochs next/previous payload must be a list")
+    # Same-provider passthrough (Blockfrost list of epoch objects).
+    if (face is ProviderName.BLOCKFROST and source == "blockfrost") or (
+        face is ProviderName.KOIOS and source == "koios"
+    ):
+        return raw
+    out: list[Any] = []
+    for item in raw:
+        if source == "koios":
+            payload: Any = item if isinstance(item, list) else [item]
+        else:
+            payload = item
+        out.append(adapt_to_face(face, source, concepts.EPOCH, payload))
+    return out
+
+
 async def fetch_epoch_blocks_as(
     face: ProviderName,
     backend: BackendProvider,

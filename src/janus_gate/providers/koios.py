@@ -47,6 +47,50 @@ class KoiosProvider(HttpProvider):
         params["epoch_no"] = f"eq.{number}"
         return await self.request("GET", "/epoch_params", params=params)
 
+    async def get_epochs_next(
+        self,
+        number: int,
+        *,
+        count: int = 100,
+        page: int = 1,
+    ) -> Any:
+        return await self._epochs_adjacent(number, direction=1, count=count, page=page)
+
+    async def get_epochs_previous(
+        self,
+        number: int,
+        *,
+        count: int = 100,
+        page: int = 1,
+    ) -> Any:
+        return await self._epochs_adjacent(number, direction=-1, count=count, page=page)
+
+    async def _epochs_adjacent(
+        self,
+        number: int,
+        *,
+        direction: int,
+        count: int,
+        page: int,
+    ) -> list[dict[str, Any]]:
+        tip = await self.get_tip()
+        tip_row = tip[0] if isinstance(tip, list) and tip else tip
+        tip_epoch = int(tip_row["epoch_no"])
+        start = number + direction * (1 + (page - 1) * count)
+        out: list[dict[str, Any]] = []
+        for i in range(count):
+            epoch_no = start + direction * i
+            if epoch_no < 0 or epoch_no > tip_epoch:
+                break
+            rows = await self.get_epoch(epoch_no)
+            if not isinstance(rows, list) or not rows:
+                break
+            row = rows[0]
+            if not isinstance(row, dict):
+                break
+            out.append(row)
+        return out
+
     async def get_block(self, hash_or_number: str) -> Any:
         block_hash = hash_or_number
         if hash_or_number.isdigit():

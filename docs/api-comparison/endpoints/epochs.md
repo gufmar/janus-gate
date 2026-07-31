@@ -21,6 +21,15 @@
 
 Latest epoch on Koios backend: resolve current `epoch_no` from `/tip`, then query `epoch_info`.
 
+## Next / previous epochs
+
+| Side | Method | Path |
+| --- | --- | --- |
+| Blockfrost | `GET` | `/epochs/{number}/next`, `/epochs/{number}/previous` |
+| Koios | — | Filter `/epoch_info` by consecutive `epoch_no` (no dedicated route) |
+
+Blockfrost face: paginated list of full epoch objects (`count`, `page`). With a Koios (or dbsync) backend, Janus walks `epoch_no ± 1, ± 2, …` up to tip and maps each row with the same epoch adapter as `/epochs/{number}`.
+
 ## Epoch parameters
 
 | Side | Method | Path |

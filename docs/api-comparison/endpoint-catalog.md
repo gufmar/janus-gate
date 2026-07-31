@@ -50,7 +50,7 @@ HTTP style note: Blockfrost is mostly `GET` with path params. Koios is often `PO
 | --- | --- | --- | --- |
 | Epoch info (latest / by number) | `GET /epochs/latest`, `GET /epochs/{number}` | `GET /epoch_info` | **Likely** / **Partial** (Koios list+filter vs BF path) |
 | Epoch protocol parameters | `GET /epochs/latest/parameters`, `GET /epochs/{number}/parameters` | `GET /epoch_params` | **Likely** |
-| Next / previous epochs | `GET /epochs/{number}/next`, `.../previous` | filter `epoch_info` | **Partial** |
+| Next / previous epochs | `GET /epochs/{number}/next`, `.../previous` | filter `epoch_info` | **Likely** (BF face walks consecutive epochs) |
 | Stake distribution by epoch | `GET /epochs/{number}/stakes`, `.../stakes/{pool_id}` | pool/account history style | **Hard** |
 | Blocks in epoch | `GET /epochs/{number}/blocks`, `.../blocks/{pool_id}` | `GET /blocks?epoch_no=eq.N` | **Partial** |
 | Block protocols in epoch | — | `GET /epoch_block_protocols` | **Koios-only** |

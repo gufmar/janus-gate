@@ -15,6 +15,7 @@ Proof of concept covering catalog **band 1 (Likely)**, **band 2 (Partial)**, and
 | Block transactions | `GET /blocks/{id}/txs`, `/blocks/latest/txs` | `POST /block_txs` |
 | Genesis | `GET /genesis` | `GET /genesis` |
 | Epoch info | `GET /epochs/latest`, `/epochs/{number}` | `GET /epoch_info` |
+| Epoch next / previous | `GET /epochs/{number}/next`, `/previous` | filter `epoch_info` |
 | Epoch parameters | `GET /epochs/.../parameters` | `GET /epoch_params` |
 | Epoch blocks | `GET /epochs/{number}/blocks` | `GET /blocks?epoch_no=eq.N` |
 | Transaction | `GET /txs/{hash}` (+ utxos/metadata/cbor) | `POST /tx_info` (+ utxos/metadata/cbor) |

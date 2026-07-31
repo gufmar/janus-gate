@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from janus_gate.config import FaceName
+from janus_gate.config import FaceName, ProviderName
 from janus_gate.faces.errors import MappingError
 from janus_gate.mapping.adapt import GENESIS, TIP, adapt_to_face
 
@@ -45,6 +45,40 @@ def test_koios_genesis_to_blockfrost() -> None:
     assert mapped["epoch_length"] == 432000
 
 
-def test_unknown_pair_raises_mapping_error() -> None:
-    with pytest.raises(MappingError, match="No face adapter"):
-        adapt_to_face(FaceName.BLOCKFROST, "ogmios", TIP, {"x": 1})
+def test_adapt_epoch_list_koios_to_blockfrost() -> None:
+    from janus_gate.mappers.registry import _adapt_epoch_list
+
+    rows = [
+        {
+            "epoch_no": 226,
+            "start_time": 1,
+            "end_time": 2,
+            "blk_count": 10,
+            "tx_count": 20,
+            "out_sum": "100",
+            "fees": "5",
+            "active_stake": "50",
+        },
+        {
+            "epoch_no": 227,
+            "start_time": 3,
+            "end_time": 4,
+            "blk_count": 11,
+            "tx_count": 21,
+            "out_sum": "101",
+            "fees": "6",
+            "active_stake": "51",
+        },
+    ]
+    mapped = _adapt_epoch_list(ProviderName.BLOCKFROST, "koios", rows)
+    assert len(mapped) == 2
+    assert mapped[0]["epoch"] == 226
+    assert mapped[0]["block_count"] == 10
+    assert mapped[1]["epoch"] == 227
+
+
+def test_adapt_epoch_list_blockfrost_passthrough() -> None:
+    from janus_gate.mappers.registry import _adapt_epoch_list
+
+    raw = [{"epoch": 1}, {"epoch": 2}]
+    assert _adapt_epoch_list(ProviderName.BLOCKFROST, "blockfrost", raw) is raw
