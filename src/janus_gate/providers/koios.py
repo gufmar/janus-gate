@@ -93,6 +93,9 @@ class KoiosProvider(HttpProvider):
             out.reverse()
         return out
 
+    async def get_era_summaries(self) -> Any:
+        return await self.request("GET", "/era_summaries")
+
     async def get_block(self, hash_or_number: str) -> Any:
         block_hash = hash_or_number
         if hash_or_number.isdigit():
@@ -113,6 +116,143 @@ class KoiosProvider(HttpProvider):
                     },
                 )
             block_hash = rows[0]["hash"]
+        return await self.request(
+            "POST",
+            "/block_info",
+            json={"_block_hashes": [block_hash]},
+        )
+
+    async def get_blocks_next(
+        self,
+        hash_or_number: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+    ) -> Any:
+        return await self._blocks_adjacent(
+            hash_or_number, direction=1, count=count, page=page
+        )
+
+    async def get_blocks_previous(
+        self,
+        hash_or_number: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+    ) -> Any:
+        return await self._blocks_adjacent(
+            hash_or_number, direction=-1, count=count, page=page
+        )
+
+    async def _blocks_adjacent(
+        self,
+        hash_or_number: str,
+        *,
+        direction: int,
+        count: int,
+        page: int,
+    ) -> list[dict[str, Any]]:
+        from janus_gate.providers.base import ProviderError
+
+        anchor = await self.get_block(hash_or_number)
+        row = anchor[0] if isinstance(anchor, list) and anchor else anchor
+        if not isinstance(row, dict) or row.get("block_height") is None:
+            raise ProviderError(
+                404,
+                {
+                    "status_code": 404,
+                    "error": "Not Found",
+                    "message": "Block not found",
+                },
+            )
+        height = int(row["block_height"])
+        tip = await self.get_tip()
+        tip_row = tip[0] if isinstance(tip, list) and tip else tip
+        tip_height = int(tip_row["block_height"]) if isinstance(tip_row, dict) else height
+        start = height + direction * (1 + (page - 1) * count)
+        out: list[dict[str, Any]] = []
+        for i in range(count):
+            h = start + direction * i
+            if h < 0 or h > tip_height:
+                break
+            try:
+                rows = await self.get_block(str(h))
+            except ProviderError as exc:
+                if exc.status_code == 404:
+                    break
+                raise
+            item = rows[0] if isinstance(rows, list) and rows else rows
+            if not isinstance(item, dict):
+                break
+            out.append(item)
+        if direction < 0:
+            out.reverse()
+        return out
+
+    async def get_block_by_slot(self, slot: int) -> Any:
+        from janus_gate.providers.base import ProviderError
+
+        rows = await self.request(
+            "GET",
+            "/blocks",
+            params={"abs_slot": f"eq.{slot}", "limit": 1},
+        )
+        if not isinstance(rows, list) or not rows:
+            raise ProviderError(
+                404,
+                {
+                    "status_code": 404,
+                    "error": "Not Found",
+                    "message": "The requested component has not been found.",
+                },
+            )
+        block_hash = rows[0].get("hash")
+        if not block_hash:
+            raise ProviderError(
+                404,
+                {
+                    "status_code": 404,
+                    "error": "Not Found",
+                    "message": "The requested component has not been found.",
+                },
+            )
+        return await self.request(
+            "POST",
+            "/block_info",
+            json={"_block_hashes": [block_hash]},
+        )
+
+    async def get_block_by_epoch_slot(self, epoch: int, slot: int) -> Any:
+        from janus_gate.providers.base import ProviderError
+
+        rows = await self.request(
+            "GET",
+            "/blocks",
+            params={
+                "epoch_no": f"eq.{epoch}",
+                "epoch_slot": f"eq.{slot}",
+                "limit": 1,
+            },
+        )
+        if not isinstance(rows, list) or not rows:
+            raise ProviderError(
+                404,
+                {
+                    "status_code": 404,
+                    "error": "Not Found",
+                    "message": "The requested component has not been found.",
+                },
+            )
+        block_hash = rows[0].get("hash")
+        if not block_hash:
+            raise ProviderError(
+                404,
+                {
+                    "status_code": 404,
+                    "error": "Not Found",
+                    "message": "The requested component has not been found.",
+                },
+            )
         return await self.request(
             "POST",
             "/block_info",

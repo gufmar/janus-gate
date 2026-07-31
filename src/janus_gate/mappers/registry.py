@@ -121,6 +121,74 @@ async def fetch_block_as(
     return adapt_to_face(face, backend.name, concepts.BLOCK, raw)
 
 
+async def fetch_blocks_next_as(
+    face: ProviderName,
+    backend: BackendProvider,
+    hash_or_number: str,
+    *,
+    count: int = 100,
+    page: int = 1,
+) -> Any:
+    raw = await backend.get_blocks_next(hash_or_number, count=count, page=page)
+    return _adapt_block_list(face, backend.name, raw)
+
+
+async def fetch_blocks_previous_as(
+    face: ProviderName,
+    backend: BackendProvider,
+    hash_or_number: str,
+    *,
+    count: int = 100,
+    page: int = 1,
+) -> Any:
+    raw = await backend.get_blocks_previous(hash_or_number, count=count, page=page)
+    return _adapt_block_list(face, backend.name, raw)
+
+
+def _adapt_block_list(face: ProviderName, source: str, raw: Any) -> list[Any]:
+    if not isinstance(raw, list):
+        raise TypeError("blocks next/previous payload must be a list")
+    if (face is ProviderName.BLOCKFROST and source == "blockfrost") or (
+        face is ProviderName.KOIOS and source == "koios"
+    ):
+        return raw
+    out: list[Any] = []
+    for item in raw:
+        if source == "koios":
+            payload: Any = item if isinstance(item, list) else [item]
+        else:
+            payload = item
+        out.append(adapt_to_face(face, source, concepts.BLOCK, payload))
+    return out
+
+
+async def fetch_block_by_slot_as(
+    face: ProviderName,
+    backend: BackendProvider,
+    slot: int,
+) -> Any:
+    raw = await backend.get_block_by_slot(slot)
+    return adapt_to_face(face, backend.name, concepts.BLOCK, raw)
+
+
+async def fetch_block_by_epoch_slot_as(
+    face: ProviderName,
+    backend: BackendProvider,
+    epoch: int,
+    slot: int,
+) -> Any:
+    raw = await backend.get_block_by_epoch_slot(epoch, slot)
+    return adapt_to_face(face, backend.name, concepts.BLOCK, raw)
+
+
+async def fetch_era_summaries_as(
+    face: ProviderName,
+    backend: BackendProvider,
+) -> Any:
+    raw = await backend.get_era_summaries()
+    return adapt_to_face(face, backend.name, concepts.ERA_SUMMARIES, raw)
+
+
 async def fetch_block_transactions_as(
     face: ProviderName,
     backend: BackendProvider,

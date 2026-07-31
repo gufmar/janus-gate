@@ -12,6 +12,7 @@ from janus_gate.mappers import asset as asset_mapper
 from janus_gate.mappers import block as block_mapper
 from janus_gate.mappers import dbsync as dbsync_mapper
 from janus_gate.mappers import epoch as epoch_mapper
+from janus_gate.mappers import era as era_mapper
 from janus_gate.mappers import genesis as genesis_mapper
 from janus_gate.mappers import governance as governance_mapper
 from janus_gate.mappers import metadata as metadata_mapper
@@ -67,6 +68,7 @@ DATUM = "datum"
 METADATA_LABELS = "metadata_labels"
 METADATA_BY_LABEL = "metadata_by_label"
 ASSET = "asset"
+ERA_SUMMARIES = "era_summaries"
 
 
 def _face_key(face: Any) -> str:
@@ -385,6 +387,12 @@ _ADAPTERS: dict[tuple[str, str, str], Adapter] = {
     ),
     ("blockfrost", "koios", ASSET): _koios_asset_to_bf,
     ("koios", "blockfrost", ASSET): _one(asset_mapper.blockfrost_asset_to_koios),
+    ("blockfrost", "koios", ERA_SUMMARIES): _one(
+        era_mapper.koios_era_summaries_to_blockfrost
+    ),
+    ("koios", "blockfrost", ERA_SUMMARIES): _one(
+        era_mapper.blockfrost_eras_to_koios
+    ),
     # dbsync -> Blockfrost face (Phase 2 MVP)
     ("blockfrost", "dbsync", TIP): _one(dbsync_mapper.dbsync_block_to_blockfrost),
     ("blockfrost", "dbsync", BLOCK): _one(dbsync_mapper.dbsync_block_to_blockfrost),

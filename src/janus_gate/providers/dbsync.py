@@ -194,6 +194,83 @@ class DbSyncProvider:
             raise _not_found("The requested component has not been found.")
         return row
 
+    async def get_era_summaries(self) -> Any:
+        raise _nyi("get_era_summaries")
+
+    async def get_blocks_next(
+        self,
+        hash_or_number: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+    ) -> Any:
+        return await self._blocks_adjacent(
+            hash_or_number, direction=1, count=count, page=page
+        )
+
+    async def get_blocks_previous(
+        self,
+        hash_or_number: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+    ) -> Any:
+        return await self._blocks_adjacent(
+            hash_or_number, direction=-1, count=count, page=page
+        )
+
+    async def _blocks_adjacent(
+        self,
+        hash_or_number: str,
+        *,
+        direction: int,
+        count: int,
+        page: int,
+    ) -> list[dict[str, Any]]:
+        anchor = await self.get_block(hash_or_number)
+        height = int(anchor["block_no"])
+        tip = await self.get_tip()
+        tip_height = int(tip["block_no"])
+        start = height + direction * (1 + (page - 1) * count)
+        out: list[dict[str, Any]] = []
+        for i in range(count):
+            h = start + direction * i
+            if h < 0 or h > tip_height:
+                break
+            try:
+                row = await self.get_block(str(h))
+            except ProviderError as exc:
+                if exc.status_code == 404:
+                    break
+                raise
+            if not isinstance(row, dict):
+                break
+            out.append(row)
+        if direction < 0:
+            out.reverse()
+        return out
+
+    async def get_block_by_slot(self, slot: int) -> Any:
+        row = await self._fetchrow(
+            _BLOCK_SELECT + " WHERE b.slot_no = $1::bigint ORDER BY b.id DESC LIMIT 1",
+            slot,
+        )
+        if not row:
+            raise _not_found("The requested component has not been found.")
+        return row
+
+    async def get_block_by_epoch_slot(self, epoch: int, slot: int) -> Any:
+        row = await self._fetchrow(
+            _BLOCK_SELECT
+            + " WHERE b.epoch_no = $1::integer AND b.epoch_slot_no = $2::integer"
+            + " ORDER BY b.id DESC LIMIT 1",
+            epoch,
+            slot,
+        )
+        if not row:
+            raise _not_found("The requested component has not been found.")
+        return row
+
     async def get_genesis(self) -> Any:
         row = await self._fetchrow(
             """

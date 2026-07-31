@@ -82,3 +82,58 @@ def test_adapt_epoch_list_blockfrost_passthrough() -> None:
 
     raw = [{"epoch": 1}, {"epoch": 2}]
     assert _adapt_epoch_list(ProviderName.BLOCKFROST, "blockfrost", raw) is raw
+
+
+def test_adapt_block_list_koios_to_blockfrost() -> None:
+    from janus_gate.mappers.registry import _adapt_block_list
+
+    rows = [
+        {
+            "hash": "abc",
+            "block_height": 10,
+            "block_time": 1,
+            "abs_slot": 100,
+            "epoch_no": 2,
+            "epoch_slot": 3,
+            "pool": "pool1",
+            "tx_count": 1,
+        }
+    ]
+    mapped = _adapt_block_list(ProviderName.BLOCKFROST, "koios", rows)
+    assert len(mapped) == 1
+    assert mapped[0]["hash"] == "abc"
+    assert mapped[0]["height"] == 10
+
+
+def test_adapt_block_list_passthrough() -> None:
+    from janus_gate.mappers.registry import _adapt_block_list
+
+    raw = [{"hash": "x", "height": 1}]
+    assert _adapt_block_list(ProviderName.BLOCKFROST, "blockfrost", raw) is raw
+
+
+def test_era_summaries_round_trip_partial() -> None:
+    from janus_gate.mapping.adapt import adapt_to_face
+    from janus_gate.mappers import era as era_mapper
+
+    koios = [
+        {
+            "era": 7,
+            "epoch_no": 400,
+            "first_block_time": 123,
+            "first_block_hash": "h",
+            "protocol_major": 9,
+            "protocol_minor": 0,
+        }
+    ]
+    bf = era_mapper.koios_era_summaries_to_blockfrost(koios)
+    assert bf[0]["start"]["epoch"] == 400
+    assert bf[0]["start"]["time"] == 123
+    assert bf[0]["parameters"]["epoch_length"] is None
+
+    back = era_mapper.blockfrost_eras_to_koios(bf)
+    assert back[0]["epoch_no"] == 400
+    assert back[0]["first_block_time"] == 123
+
+    adapted = adapt_to_face("blockfrost", "koios", "era_summaries", koios)
+    assert adapted[0]["start"]["epoch"] == 400

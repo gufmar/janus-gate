@@ -9,6 +9,17 @@
 
 Height on Koios backend: look up hash via `GET /blocks?block_height=eq.N`, then `POST /block_info`.
 
+## Related Blockfrost routes (implemented)
+
+| Path | Behavior |
+| --- | --- |
+| `GET /blocks/{id}/next` | Adjacent higher heights (BF proxy, or walk on Koios/dbsync) |
+| `GET /blocks/{id}/previous` | Adjacent lower heights (list ascending after reverse) |
+| `GET /blocks/slot/{slot}` | Block at absolute slot |
+| `GET /blocks/epoch/{e}/slot/{s}` | Block at epoch + epoch slot |
+
+Koios face `GET /blocks` accepts `epoch_no=eq.N`, `abs_slot=eq.N`, or `block_height=eq.N`.
+
 ## Field mapping
 
 | Blockfrost | Koios | Class |

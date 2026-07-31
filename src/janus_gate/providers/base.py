@@ -45,7 +45,29 @@ class BackendProvider(Protocol):
         page: int = 1,
     ) -> Any: ...
 
+    async def get_era_summaries(self) -> Any: ...
+
     async def get_block(self, hash_or_number: str) -> Any: ...
+
+    async def get_blocks_next(
+        self,
+        hash_or_number: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+    ) -> Any: ...
+
+    async def get_blocks_previous(
+        self,
+        hash_or_number: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+    ) -> Any: ...
+
+    async def get_block_by_slot(self, slot: int) -> Any: ...
+
+    async def get_block_by_epoch_slot(self, epoch: int, slot: int) -> Any: ...
 
     async def get_block_transactions(
         self,

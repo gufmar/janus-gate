@@ -22,6 +22,7 @@ from janus_gate.mappers.registry import (
     fetch_address_utxos_as,
     fetch_asset_as,
     fetch_block_as,
+    fetch_block_by_slot_as,
     fetch_block_transactions_as,
     fetch_committee_as,
     fetch_datum_as,
@@ -30,6 +31,7 @@ from janus_gate.mappers.registry import (
     fetch_epoch_as,
     fetch_epoch_blocks_as,
     fetch_epoch_parameters_as,
+    fetch_era_summaries_as,
     fetch_genesis_as,
     fetch_metadata_by_label_as,
     fetch_metadata_labels_as,
@@ -115,6 +117,12 @@ def build_koios_router() -> APIRouter:
             fetch_genesis_as(ProviderName.KOIOS, request.app.state.backend)
         )
 
+    @router.get("/era_summaries")
+    async def era_summaries(request: Request) -> Any:
+        return await run_upstream(
+            fetch_era_summaries_as(ProviderName.KOIOS, request.app.state.backend)
+        )
+
     @router.get("/epoch_info")
     async def epoch_info(
         request: Request,
@@ -147,14 +155,30 @@ def build_koios_router() -> APIRouter:
     async def blocks(
         request: Request,
         epoch_no: str | None = Query(default=None),
+        abs_slot: str | None = Query(default=None),
+        block_height: str | None = Query(default=None),
         limit: int = Query(default=100, ge=1, le=1000),
         offset: int = Query(default=0, ge=0),
         order: str = Query(default="block_height.asc"),
     ) -> Any:
+        slot = _parse_eq_int(abs_slot)
+        if slot is not None:
+            return await run_upstream(
+                fetch_block_by_slot_as(
+                    ProviderName.KOIOS, request.app.state.backend, slot
+                )
+            )
+        height = _parse_eq_int(block_height)
+        if height is not None:
+            return await run_upstream(
+                fetch_block_as(
+                    ProviderName.KOIOS, request.app.state.backend, str(height)
+                )
+            )
         number = _parse_eq_int(epoch_no)
         if number is None:
             raise BadRequestError(
-                "Janus PoC requires epoch_no=eq.N for GET /blocks"
+                "Janus PoC requires epoch_no=eq.N, abs_slot=eq.N, or block_height=eq.N"
             )
         count, page, bf_order = _koios_page(limit, offset, order)
         return await run_upstream(

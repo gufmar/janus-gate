@@ -20,7 +20,11 @@ from janus_gate.mappers.registry import (
     fetch_address_utxos_as,
     fetch_asset_as,
     fetch_block_as,
+    fetch_block_by_epoch_slot_as,
+    fetch_block_by_slot_as,
     fetch_block_transactions_as,
+    fetch_blocks_next_as,
+    fetch_blocks_previous_as,
     fetch_committee_as,
     fetch_datum_as,
     fetch_drep_as,
@@ -30,6 +34,7 @@ from janus_gate.mappers.registry import (
     fetch_epoch_parameters_as,
     fetch_epochs_next_as,
     fetch_epochs_previous_as,
+    fetch_era_summaries_as,
     fetch_genesis_as,
     fetch_metadata_by_label_as,
     fetch_metadata_labels_as,
@@ -84,6 +89,27 @@ def build_blockfrost_router() -> APIRouter:
             )
         )
 
+    @router.get("/blocks/slot/{slot_number}")
+    async def blocks_by_slot(slot_number: int, request: Request):
+        return await run_upstream(
+            fetch_block_by_slot_as(
+                ProviderName.BLOCKFROST, request.app.state.backend, slot_number
+            )
+        )
+
+    @router.get("/blocks/epoch/{epoch_number}/slot/{slot_number}")
+    async def blocks_by_epoch_slot(
+        epoch_number: int, slot_number: int, request: Request
+    ):
+        return await run_upstream(
+            fetch_block_by_epoch_slot_as(
+                ProviderName.BLOCKFROST,
+                request.app.state.backend,
+                epoch_number,
+                slot_number,
+            )
+        )
+
     @router.get("/blocks/{hash_or_number}/txs")
     async def blocks_txs(
         hash_or_number: str,
@@ -102,6 +128,40 @@ def build_blockfrost_router() -> APIRouter:
             )
         )
 
+    @router.get("/blocks/{hash_or_number}/next")
+    async def blocks_next(
+        hash_or_number: str,
+        request: Request,
+        count: int = Query(default=100, ge=1, le=100),
+        page: int = Query(default=1, ge=1),
+    ):
+        return await run_upstream(
+            fetch_blocks_next_as(
+                ProviderName.BLOCKFROST,
+                request.app.state.backend,
+                hash_or_number,
+                count=count,
+                page=page,
+            )
+        )
+
+    @router.get("/blocks/{hash_or_number}/previous")
+    async def blocks_previous(
+        hash_or_number: str,
+        request: Request,
+        count: int = Query(default=100, ge=1, le=100),
+        page: int = Query(default=1, ge=1),
+    ):
+        return await run_upstream(
+            fetch_blocks_previous_as(
+                ProviderName.BLOCKFROST,
+                request.app.state.backend,
+                hash_or_number,
+                count=count,
+                page=page,
+            )
+        )
+
     @router.get("/blocks/{hash_or_number}")
     async def blocks_by_id(hash_or_number: str, request: Request):
         return await run_upstream(
@@ -109,6 +169,14 @@ def build_blockfrost_router() -> APIRouter:
                 ProviderName.BLOCKFROST,
                 request.app.state.backend,
                 hash_or_number,
+            )
+        )
+
+    @router.get("/network/eras")
+    async def network_eras(request: Request):
+        return await run_upstream(
+            fetch_era_summaries_as(
+                ProviderName.BLOCKFROST, request.app.state.backend
             )
         )
 
