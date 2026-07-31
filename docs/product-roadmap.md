@@ -6,11 +6,11 @@ Janus Gate is evolving from a Blockfrost↔Koios translator into a **Cardano API
 
 ### Phase 0 – Reverse face validation
 
-Run Koios face + Blockfrost backend (`config.koios-face.example.yaml`). Confirm bidirectional claim for core routes. Inventory Gaps specific to that direction.
+Run Koios face + Blockfrost backend (`config.koios-face.example.yaml`) and Blockfrost face + Koios backend. Confirm bidirectional claim for core routes. Inventory Gaps specific to each direction.
 
-**Status:** started / in progress with operators.
+**Status:** operator-validated for core routes; ongoing fidelity work via `scripts/compare_face.py`.
 
-### Phase 1 – Canonical foundation (this work)
+### Phase 1 – Canonical foundation
 
 - Separate **API faces** from **backend sources**.
 - Keep `BackendProvider` methods as canonical operations.
@@ -19,11 +19,23 @@ Run Koios face + Blockfrost backend (`config.koios-face.example.yaml`). Confirm 
 
 **Status:** done.
 
+### Phase 2a – Ops hardening
+
+- `/health` no longer exposes API key previews.
+- `auth.debug_log_keys` for masked per-request key logging.
+- Optional `access.allowed_ips` with `deny: endpoints | strict`.
+
+**Status:** done.
+
 ### Phase 2 – dbSync / PostgreSQL backend
 
-Expose a basic Blockfrost face by reading local cardano-db-sync. MVP: tip, block, genesis/epoch (+ params), address (+ utxos), account basics, tx by hash. Submit tx and the rest of the catalog return 501 until extended. See [backends/dbsync.md](backends/dbsync.md).
+Expose Blockfrost or Koios face by reading cardano-db-sync. MVP: tip, block, genesis/epoch (+ params), address (+ utxos), account basics, tx by hash. Optional SSH tunnel for private Postgres. Submit tx and the rest of the catalog return 501 until extended. See [backends/dbsync.md](backends/dbsync.md).
 
-**Status:** MVP implemented (Blockfrost face).
+**Status:** MVP live (both faces); fidelity pass and endpoint expansion in progress.
+
+### Phase 2.5 – Face fidelity (current focus)
+
+Use `scripts/compare_face.py` against native Koios/Blockfrost and a deployed Janus instance. Fix field scale, NULL Gaps, and shape drift **one endpoint at a time** before multi-backend work.
 
 ### Phase 3 – Master / slave dual backends
 
@@ -35,7 +47,7 @@ Call two sources, normalize, compare selected fields, return face-mapped result 
 
 ### Phase 5 – Ogmios / Yaci-Store
 
-Additional `BackendProvider` adapters once the adaptation table and multi-backend router exist. Left last to avoid exploding pairwise face↔face matrices.
+Additional `BackendProvider` adapters once the adaptation table and multi-backend router exist. Left last to avoid exploding pairwise face↔face matrices. Also the natural path for submit-tx.
 
 ## Non-goals (near term)
 

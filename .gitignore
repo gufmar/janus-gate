@@ -150,6 +150,9 @@ activemq-data/
 # Local Janus Gate config (keep secrets out of git)
 config.yaml
 .env
+.env.*
+!.env.example
+scripts/compare_face.env
 .envrc
 .venv
 

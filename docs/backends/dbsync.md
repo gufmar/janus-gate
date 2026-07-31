@@ -64,6 +64,10 @@ Do not commit private keys or passwords. An OS-level or infra SSH tunnel remains
 
 Unimplemented ops return HTTP **501** with a clear message. Koios-face dbsync adapters reuse the Blockfrost-shaped mapping, then convert to Koios.
 
+## Fidelity checks
+
+Use [`scripts/compare_face.py`](../../scripts/compare_face.py) with a local env file (see `scripts/compare_face.env.example`) to compare native Koios/Blockfrost responses to a deployed Janus instance, one case at a time.
+
 ## Notes
 
 - Genesis fills protocol constants from `meta.network_name` (mainnet / preprod / preview) plus `meta.start_time`.

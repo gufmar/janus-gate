@@ -101,8 +101,11 @@ def render_home_html(
       · base path <strong>{base_note}</strong>
     </p>
     <p>
-      Bidirectional Cardano API compatibility gateway. Clients keep one provider
-      face while Janus fulfills requests from the other.
+      Cardano API compatibility gateway. Each instance presents one public
+      <strong>face</strong> (Blockfrost or Koios HTTP API) and fulfills requests
+      from a configured <strong>backend</strong> (the other API, or a data source
+      such as cardano-db-sync). Paths and JSON shapes are adapted to the face
+      contract; this is not a plain reverse proxy.
     </p>
     <ul>
       <li>
@@ -265,10 +268,12 @@ def render_endpoints_html(
       · <a href="{html.escape(docs_href)}">{html.escape(docs_href)}</a>
     </p>
     <p class="meta">
+      Coverage for the mounted <strong>{html.escape(public_face.value)}</strong> face
+      (backend: <strong>{html.escape(backend.value)}</strong>).
       Implemented <strong>GET</strong> routes are linked with the configured
       <code>server.base_path</code> (path parameters may still need values).
       <strong>POST</strong> routes are marked implemented but not clickable.
-      Grey rows are known face routes not wired yet.
+      Grey rows are known face routes not wired yet (or 501 on this backend).
     </p>
     {"".join(sections)}
     <p class="note">

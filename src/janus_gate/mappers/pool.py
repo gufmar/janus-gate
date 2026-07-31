@@ -155,6 +155,20 @@ def _clean_meta_hash(value: Any) -> Any:
     return value
 
 
+def _pct_to_fraction(value: Any) -> Any:
+    """Koios active_stake_pct (percent units) -> Blockfrost active_size (0..1)."""
+    if value is None or value == "":
+        return None
+    return float(value) / 100.0
+
+
+def _fraction_to_pct(value: Any) -> Any:
+    """Blockfrost active_size (0..1) -> Koios active_stake_pct (percent units)."""
+    if value is None or value == "":
+        return None
+    return float(value) * 100.0
+
+
 def koios_pool_history_to_blockfrost(rows: Any) -> list[dict[str, Any]]:
     if not isinstance(rows, list):
         raise ValueError("Unexpected Koios pool_history payload")
@@ -165,7 +179,7 @@ def koios_pool_history_to_blockfrost(rows: Any) -> list[dict[str, Any]]:
             "active_stake": (
                 None if row.get("active_stake") is None else str(row.get("active_stake"))
             ),
-            "active_size": row.get("active_stake_pct"),
+            "active_size": _pct_to_fraction(row.get("active_stake_pct")),
             "delegators_count": row.get("delegator_cnt") or 0,
             "rewards": (
                 None
@@ -186,7 +200,7 @@ def blockfrost_pool_history_to_koios(rows: Any) -> list[dict[str, Any]]:
         {
             "epoch_no": row.get("epoch"),
             "active_stake": row.get("active_stake"),
-            "active_stake_pct": row.get("active_size"),
+            "active_stake_pct": _fraction_to_pct(row.get("active_size")),
             "saturation_pct": None,
             "block_cnt": row.get("blocks"),
             "delegator_cnt": row.get("delegators_count"),

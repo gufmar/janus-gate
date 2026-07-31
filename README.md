@@ -1,8 +1,8 @@
 # Janus Gate
 
-Janus Gate is a bidirectional Cardano API compatibility gateway. Named after the two-faced Roman god, each instance presents one public API face (Blockfrost or Koios) and fulfills requests by querying the other provider on the backend.
+Janus Gate is a Cardano API compatibility gateway. Named after the two-faced Roman god, each instance presents one public API **face** (Blockfrost or Koios) and fulfills requests from a configured **backend** (the other HTTP API, or a pluggable source such as cardano-db-sync).
 
-This is not a 1:1 reverse proxy. Paths, HTTP methods, field names, and shapes are translated so a client can keep talking Blockfrost while data comes from Koios (or the reverse).
+This is not a 1:1 reverse proxy. Paths, HTTP methods, field names, and shapes are translated so a client can keep talking Blockfrost or Koios while data comes from elsewhere.
 
 ## Status
 
@@ -37,6 +37,8 @@ Plus Janus-native `GET /` (home), `GET /health` for probes, `GET /endpoints` for
 Client-facing errors, 404 policy, and auth header quieting are described in [docs/api-comparison/fidelity.md](docs/api-comparison/fidelity.md).
 
 See [docs/architecture.md](docs/architecture.md), [docs/product-roadmap.md](docs/product-roadmap.md), [docs/backends/dbsync.md](docs/backends/dbsync.md), [docs/api-comparison/overview.md](docs/api-comparison/overview.md), and the full triage map in [docs/api-comparison/endpoint-catalog.md](docs/api-comparison/endpoint-catalog.md).
+
+For live fidelity checks against native providers and a deployed Janus instance, see [scripts/compare_face.py](scripts/compare_face.py) and [scripts/compare_face.env.example](scripts/compare_face.env.example).
 
 ## Requirements
 

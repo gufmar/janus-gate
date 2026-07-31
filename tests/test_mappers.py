@@ -67,7 +67,7 @@ def test_pool_history_mapping() -> None:
             "epoch_no": 210,
             "block_cnt": 2,
             "active_stake": 1000,
-            "active_stake_pct": 0.1,
+            "active_stake_pct": 0.27302943272682884,
             "delegator_cnt": 5,
             "deleg_rewards": 50,
             "pool_fees": 10,
@@ -78,6 +78,25 @@ def test_pool_history_mapping() -> None:
     assert mapped[0]["blocks"] == 2
     assert mapped[0]["active_stake"] == "1000"
     assert mapped[0]["fees"] == "10"
+    assert mapped[0]["active_size"] == pytest.approx(0.0027302943272682884)
+
+
+def test_pool_history_active_size_scale_roundtrip() -> None:
+    bf_rows = [
+        {
+            "epoch": 210,
+            "blocks": 2,
+            "active_stake": "1000",
+            "active_size": 0.0027302943272682884,
+            "delegators_count": 5,
+            "rewards": "50",
+            "fees": "10",
+        }
+    ]
+    koios = pool_mapper.blockfrost_pool_history_to_koios(bf_rows)
+    assert koios[0]["active_stake_pct"] == pytest.approx(0.27302943272682884)
+    back = pool_mapper.koios_pool_history_to_blockfrost(koios)
+    assert back[0]["active_size"] == pytest.approx(0.0027302943272682884)
 
 
 def test_tip_mapping_basic() -> None:
