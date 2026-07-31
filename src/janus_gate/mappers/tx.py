@@ -147,9 +147,14 @@ def koios_tx_utxos_to_blockfrost(rows: Any) -> dict[str, Any]:
 
 
 def blockfrost_tx_utxos_to_koios(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    def side(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    parent_hash = payload.get("hash")
+
+    def side(entries: list[dict[str, Any]], *, is_input: bool) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
         for entry in entries:
+            # Native Koios /tx_utxos omits collateral and reference inputs/outputs.
+            if entry.get("collateral") or entry.get("reference"):
+                continue
             lovelace = "0"
             assets: list[dict[str, str]] = []
             for amount in entry.get("amount") or []:
@@ -167,7 +172,7 @@ def blockfrost_tx_utxos_to_koios(payload: dict[str, Any]) -> list[dict[str, Any]
                     )
             out.append(
                 {
-                    "tx_hash": entry.get("tx_hash"),
+                    "tx_hash": entry.get("tx_hash") if is_input else parent_hash,
                     "tx_index": entry.get("output_index"),
                     "value": lovelace,
                     "asset_list": assets,
@@ -177,13 +182,14 @@ def blockfrost_tx_utxos_to_koios(payload: dict[str, Any]) -> list[dict[str, Any]
                     "stake_addr": None,
                 }
             )
+        out.sort(key=lambda u: (u.get("tx_index") is None, u.get("tx_index") or 0))
         return out
 
     return [
         {
-            "tx_hash": payload.get("hash"),
-            "inputs": side(payload.get("inputs") or []),
-            "outputs": side(payload.get("outputs") or []),
+            "tx_hash": parent_hash,
+            "inputs": side(payload.get("inputs") or [], is_input=True),
+            "outputs": side(payload.get("outputs") or [], is_input=False),
         }
     ]
 

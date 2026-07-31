@@ -55,16 +55,29 @@ def koios_drep_list_to_blockfrost(rows: Any) -> list[str]:
 def blockfrost_drep_ids_to_koios(rows: Any) -> list[dict[str, Any]]:
     if not isinstance(rows, list):
         raise ValueError("Unexpected Blockfrost dreps payload")
-    return [
-        {
-            "drep_id": drep_id,
-            "hex": None,
-            "has_script": False,
-            "registered": True,
-        }
-        for drep_id in rows
-        if isinstance(drep_id, str)
-    ]
+    result: list[dict[str, Any]] = []
+    for item in rows:
+        if isinstance(item, str):
+            result.append(
+                {
+                    "drep_id": item,
+                    "hex": None,
+                    "has_script": False,
+                    "registered": True,
+                }
+            )
+        elif isinstance(item, dict) and item.get("drep_id"):
+            result.append(
+                {
+                    "drep_id": item.get("drep_id"),
+                    "hex": item.get("hex"),
+                    "has_script": bool(item.get("has_script")),
+                    "registered": not bool(
+                        item.get("retired") or item.get("expired")
+                    ),
+                }
+            )
+    return result
 
 
 def koios_drep_info_to_blockfrost(rows: Any, drep_id: str) -> dict[str, Any]:
