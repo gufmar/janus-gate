@@ -375,12 +375,19 @@ def build_blockfrost_router() -> APIRouter:
         )
 
     @router.get("/accounts/{stake_address}/addresses")
-    async def account_addresses(stake_address: str, request: Request):
+    async def account_addresses(
+        stake_address: str,
+        request: Request,
+        count: int = Query(default=100, ge=1, le=100),
+        page: int = Query(default=1, ge=1),
+    ):
         return await run_upstream(
             fetch_account_addresses_as(
                 ProviderName.BLOCKFROST,
                 request.app.state.backend,
                 stake_address,
+                count=count,
+                page=page,
             )
         )
 

@@ -268,7 +268,12 @@ async def fetch_account_history_as(
 
 
 async def fetch_account_addresses_as(
-    face: ProviderName, backend: BackendProvider, stake_address: str
+    face: ProviderName,
+    backend: BackendProvider,
+    stake_address: str,
+    *,
+    count: int = 100,
+    page: int = 1,
 ) -> Any:
     raw = await backend.get_account_addresses(stake_address)
     return adapt_to_face(
@@ -277,6 +282,8 @@ async def fetch_account_addresses_as(
         concepts.ACCOUNT_ADDRESSES,
         raw,
         stake_address=stake_address,
+        count=count,
+        page=page,
     )
 
 

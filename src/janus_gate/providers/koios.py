@@ -89,6 +89,8 @@ class KoiosProvider(HttpProvider):
             if not isinstance(row, dict):
                 break
             out.append(row)
+        if direction < 0:
+            out.reverse()
         return out
 
     async def get_block(self, hash_or_number: str) -> Any:

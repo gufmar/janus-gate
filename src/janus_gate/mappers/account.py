@@ -148,17 +148,30 @@ def blockfrost_account_history_to_koios(
     return [{"stake_address": stake_address, "history": history}]
 
 
-def koios_account_addresses_to_blockfrost(rows: Any) -> list[str]:
+def koios_account_addresses_to_blockfrost(
+    rows: Any,
+    *,
+    count: int = 100,
+    page: int = 1,
+) -> list[dict[str, str]]:
     if not isinstance(rows, list) or not rows:
         return []
     addresses = first_row(rows, "account_addresses").get("addresses") or []
-    return [a for a in addresses if isinstance(a, str)]
+    strings = [a for a in addresses if isinstance(a, str)]
+    start = max(0, (page - 1) * count)
+    sliced = strings[start : start + count]
+    return [{"address": a} for a in sliced]
 
 
 def blockfrost_account_addresses_to_koios(
     rows: Any, stake_address: str
 ) -> list[dict[str, Any]]:
-    addresses = rows if isinstance(rows, list) else []
+    addresses: list[str] = []
+    for item in rows if isinstance(rows, list) else []:
+        if isinstance(item, str):
+            addresses.append(item)
+        elif isinstance(item, dict) and item.get("address"):
+            addresses.append(str(item["address"]))
     return [{"stake_address": stake_address, "addresses": addresses}]
 
 

@@ -309,6 +309,8 @@ class DbSyncProvider:
             if not isinstance(row, dict):
                 break
             out.append(row)
+        if direction < 0:
+            out.reverse()
         return out
 
     async def get_epoch_parameters(self, number: int | None = None) -> Any:

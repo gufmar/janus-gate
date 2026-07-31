@@ -145,6 +145,14 @@ def _bf_account_addresses_to_koios(raw: Any, **ctx: Any) -> Any:
     )
 
 
+def _koios_account_addresses_to_bf(raw: Any, **ctx: Any) -> Any:
+    return account_mapper.koios_account_addresses_to_blockfrost(
+        raw,
+        count=ctx.get("count", 100),
+        page=ctx.get("page", 1),
+    )
+
+
 def _koios_account_txs_to_bf(raw: Any, **ctx: Any) -> Any:
     return account_mapper.koios_account_txs_to_blockfrost(raw, ctx["stake_address"])
 
@@ -307,9 +315,7 @@ _ADAPTERS: dict[tuple[str, str, str], Adapter] = {
     ("koios", "blockfrost", ACCOUNT_REWARDS): _bf_account_rewards_to_koios,
     ("blockfrost", "koios", ACCOUNT_HISTORY): _koios_account_history_to_bf,
     ("koios", "blockfrost", ACCOUNT_HISTORY): _bf_account_history_to_koios,
-    ("blockfrost", "koios", ACCOUNT_ADDRESSES): _one(
-        account_mapper.koios_account_addresses_to_blockfrost
-    ),
+    ("blockfrost", "koios", ACCOUNT_ADDRESSES): _koios_account_addresses_to_bf,
     ("koios", "blockfrost", ACCOUNT_ADDRESSES): _bf_account_addresses_to_koios,
     ("blockfrost", "koios", ACCOUNT_TXS): _koios_account_txs_to_bf,
     ("koios", "blockfrost", ACCOUNT_TXS): _one(
