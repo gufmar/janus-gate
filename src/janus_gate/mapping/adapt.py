@@ -210,6 +210,51 @@ def _dbsync_account_to_bf(raw: Any, **ctx: Any) -> Any:
     return dbsync_mapper.dbsync_account_to_blockfrost(raw, ctx["stake_address"])
 
 
+def _dbsync_tip_to_koios(raw: Any, **_ctx: Any) -> Any:
+    bf = dbsync_mapper.dbsync_block_to_blockfrost(raw)
+    return block_mapper.blockfrost_latest_to_koios_tip(bf)
+
+
+def _dbsync_block_to_koios(raw: Any, **_ctx: Any) -> Any:
+    bf = dbsync_mapper.dbsync_block_to_blockfrost(raw)
+    return block_mapper.blockfrost_block_to_koios_info(bf)
+
+
+def _dbsync_genesis_to_koios(raw: Any, **_ctx: Any) -> Any:
+    bf = dbsync_mapper.dbsync_genesis_to_blockfrost(raw)
+    return genesis_mapper.blockfrost_genesis_to_koios(bf)
+
+
+def _dbsync_epoch_to_koios(raw: Any, **_ctx: Any) -> Any:
+    bf = dbsync_mapper.dbsync_epoch_to_blockfrost(raw)
+    return epoch_mapper.blockfrost_epoch_to_koios(bf)
+
+
+def _dbsync_epoch_params_to_koios(raw: Any, **_ctx: Any) -> Any:
+    bf = dbsync_mapper.dbsync_epoch_params_to_blockfrost(raw)
+    return epoch_mapper.blockfrost_epoch_params_to_koios(bf)
+
+
+def _dbsync_address_to_koios(raw: Any, **ctx: Any) -> Any:
+    bf = dbsync_mapper.dbsync_address_to_blockfrost(raw, ctx["address"])
+    return address_mapper.blockfrost_address_to_koios(bf)
+
+
+def _dbsync_address_utxos_to_koios(raw: Any, **_ctx: Any) -> Any:
+    bf = dbsync_mapper.dbsync_address_utxos_to_blockfrost(raw)
+    return address_mapper.blockfrost_address_utxos_to_koios(bf)
+
+
+def _dbsync_account_to_koios(raw: Any, **ctx: Any) -> Any:
+    bf = dbsync_mapper.dbsync_account_to_blockfrost(raw, ctx["stake_address"])
+    return account_mapper.blockfrost_account_to_koios(bf)
+
+
+def _dbsync_tx_to_koios(raw: Any, **_ctx: Any) -> Any:
+    bf = dbsync_mapper.dbsync_tx_to_blockfrost(raw)
+    return tx_mapper.blockfrost_tx_to_koios_info(bf)
+
+
 def _koios_asset_to_bf(raw: Any, **ctx: Any) -> Any:
     return asset_mapper.koios_asset_info_to_blockfrost(raw, ctx["asset"])
 
@@ -348,6 +393,16 @@ _ADAPTERS: dict[tuple[str, str, str], Adapter] = {
     ),
     ("blockfrost", "dbsync", ACCOUNT): _dbsync_account_to_bf,
     ("blockfrost", "dbsync", TX): _one(dbsync_mapper.dbsync_tx_to_blockfrost),
+    # dbsync -> Koios face (compose via Blockfrost-shaped intermediate)
+    ("koios", "dbsync", TIP): _dbsync_tip_to_koios,
+    ("koios", "dbsync", BLOCK): _dbsync_block_to_koios,
+    ("koios", "dbsync", GENESIS): _dbsync_genesis_to_koios,
+    ("koios", "dbsync", EPOCH): _dbsync_epoch_to_koios,
+    ("koios", "dbsync", EPOCH_PARAMETERS): _dbsync_epoch_params_to_koios,
+    ("koios", "dbsync", ADDRESS): _dbsync_address_to_koios,
+    ("koios", "dbsync", ADDRESS_UTXOS): _dbsync_address_utxos_to_koios,
+    ("koios", "dbsync", ACCOUNT): _dbsync_account_to_koios,
+    ("koios", "dbsync", TX): _dbsync_tx_to_koios,
 }
 
 

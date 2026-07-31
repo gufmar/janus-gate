@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -28,8 +29,24 @@ from janus_gate.faces.koios import build_koios_router
 from janus_gate.pages import render_endpoints_html, render_home_html
 from janus_gate.providers import create_backend
 
+logger = logging.getLogger("janus_gate")
+
+
+def _configure_app_logging() -> None:
+    """Ensure janus_gate.* INFO logs show under uvicorn (root is often WARNING)."""
+    package = logging.getLogger("janus_gate")
+    package.setLevel(logging.INFO)
+    if package.handlers:
+        return
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.INFO)
+    handler.setFormatter(logging.Formatter("%(levelname)s:     %(name)s: %(message)s"))
+    package.addHandler(handler)
+    package.propagate = False
+
 
 def create_app(config: AppConfig) -> FastAPI:
+    _configure_app_logging()
     audit_store = AuditStore(
         ttl_seconds=config.audit.session_ttl_minutes * 60,
         max_events=config.audit.max_events_per_session,
@@ -39,9 +56,16 @@ def create_app(config: AppConfig) -> FastAPI:
     async def lifespan(app: FastAPI):
         configure_auth_fallback(config.auth.fallback_backend_key)
         backend = create_backend(config)
+        logger.info(
+            "backend ready to connect: face=%s provider=%s",
+            config.public_face.value,
+            config.backend.provider.value,
+        )
         connect = getattr(backend, "connect", None)
         if callable(connect):
             await connect()
+        else:
+            logger.info("backend %s has no connect() (HTTP client)", backend.name)
         app.state.backend = backend
         app.state.config = config
         app.state.audit_store = audit_store

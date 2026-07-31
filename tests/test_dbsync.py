@@ -103,8 +103,39 @@ def test_adapt_dbsync_tip_and_tx() -> None:
 
 
 def test_adapt_unknown_dbsync_koios_pair() -> None:
+    # Unknown concept for koios+dbsync still errors; tip is registered.
     with pytest.raises(MappingError, match="No face adapter"):
-        adapt_to_face(FaceName.KOIOS, "dbsync", GENESIS, {"network_name": "mainnet"})
+        adapt_to_face(FaceName.KOIOS, "dbsync", "pools", {"x": 1})
+
+
+def test_adapt_dbsync_tip_to_koios() -> None:
+    tip = adapt_to_face(
+        FaceName.KOIOS,
+        "dbsync",
+        TIP,
+        {
+            "hash": "h1",
+            "block_no": 1,
+            "epoch_no": 0,
+            "slot_no": 0,
+            "epoch_slot_no": 0,
+            "block_time": 1,
+            "size": 1,
+            "tx_count": 0,
+            "confirmations": 0,
+            "out_sum": 0,
+            "fees": 0,
+            "slot_leader": None,
+            "previous_hash": None,
+            "next_hash": None,
+            "vrf_key": None,
+            "op_cert": None,
+            "op_cert_counter": None,
+        },
+    )
+    assert isinstance(tip, list)
+    assert tip[0]["hash"] == "h1"
+    assert tip[0]["block_height"] == 1
 
 
 def test_dbsync_block_missing_raises() -> None:

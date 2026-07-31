@@ -46,23 +46,23 @@ On successful startup Janus logs `dbsync connection ok` with `network` (from `me
 
 Do not commit private keys or passwords. An OS-level or infra SSH tunnel remains valid; leave `ssh_tunnel` unset and point `dsn` at `127.0.0.1` in that case.
 
-## MVP coverage (Blockfrost face)
+## MVP coverage (Blockfrost or Koios face)
 
-| Concept | Route | Status |
-| --- | --- | --- |
-| Tip | `GET /blocks/latest` | Implemented |
-| Block | `GET /blocks/{hash_or_number}` | Implemented |
-| Genesis | `GET /genesis` | Partial (meta + network defaults) |
-| Epoch | `GET /epochs/latest`, `/epochs/{n}` | Implemented |
-| Epoch params | `GET /epochs/.../parameters` | Implemented |
-| Address | `GET /addresses/{address}` | Implemented |
-| Address UTxOs | `GET /addresses/{address}/utxos` | Implemented |
-| Account | `GET /accounts/{stake}` | Implemented (basic) |
-| Transaction | `GET /txs/{hash}` | Implemented (core fields) |
-| Submit tx | `POST /tx/submit` | Gap (501) |
-| Other catalog routes | pools, governance, … | Gap (501) |
+| Concept | Blockfrost | Koios | Status |
+| --- | --- | --- | --- |
+| Tip | `GET /blocks/latest` | `GET /tip` | Implemented |
+| Block | `GET /blocks/{hash_or_number}` | `POST /block_info` | Implemented |
+| Genesis | `GET /genesis` | `GET /genesis` | Partial (meta + network defaults) |
+| Epoch | `GET /epochs/latest`, `/epochs/{n}` | `GET /epoch_info` | Implemented |
+| Epoch params | `GET /epochs/.../parameters` | `GET /epoch_params` | Implemented |
+| Address | `GET /addresses/{address}` | `POST /address_info` | Implemented |
+| Address UTxOs | `GET /addresses/{address}/utxos` | `POST /address_utxos` | Implemented |
+| Account | `GET /accounts/{stake}` | `POST /account_info` | Implemented (basic) |
+| Transaction | `GET /txs/{hash}` | `POST /tx_info` | Implemented (core fields) |
+| Submit tx | `POST /tx/submit` | `POST /submittx` | Gap (501) |
+| Other catalog routes | pools, governance, … | | Gap (501) |
 
-Unimplemented ops return HTTP **501** with a clear message. Koios-face adapters for dbsync are not registered yet.
+Unimplemented ops return HTTP **501** with a clear message. Koios-face dbsync adapters reuse the Blockfrost-shaped mapping, then convert to Koios.
 
 ## Notes
 
