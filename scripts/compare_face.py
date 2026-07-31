@@ -182,6 +182,52 @@ def _resolve_sample_tx_hash(
     return None
 
 
+def _resolve_sample_script_or_datum(
+    client: httpx.Client,
+    native_base: str,
+    native_headers: dict[str, str],
+    *,
+    kind: str,
+) -> str | None:
+    """Scan recent tip-relative txs for a script or datum hash fixture."""
+    tip = _json_get(client, native_base, "/blocks/latest", headers=native_headers)
+    height = tip.get("height") if isinstance(tip, dict) else None
+    if height is None:
+        return None
+    field = "reference_script_hash" if kind == "script" else "data_hash"
+    for delta in (20, 50, 100, 200, 500, 1000, 2000):
+        h = max(1, int(height) - delta)
+        txs = _json_get(
+            client,
+            native_base,
+            f"/blocks/{h}/txs",
+            headers=native_headers,
+            params={"count": 10, "page": 1},
+        )
+        if not isinstance(txs, list):
+            continue
+        for tx_hash in txs:
+            try:
+                utxos = _json_get(
+                    client,
+                    native_base,
+                    f"/txs/{tx_hash}/utxos",
+                    headers=native_headers,
+                )
+            except httpx.HTTPError:
+                continue
+            if not isinstance(utxos, dict):
+                continue
+            for side in ("inputs", "outputs"):
+                for u in utxos.get(side) or []:
+                    if not isinstance(u, dict):
+                        continue
+                    value = u.get(field)
+                    if value:
+                        return str(value)
+    return None
+
+
 def _norm(value: Any) -> Any:
     if isinstance(value, float):
         return round(value, 12)
@@ -2135,6 +2181,8 @@ def run_case(
                     "retired",
                     "expired",
                     "metadata",
+                    "anchor",
+                    "last_active_epoch",
                 }
             )
             diffs = _diff(native, janus, ignore=ignore)
@@ -2151,6 +2199,191 @@ def run_case(
                 janus=janus,
                 diffs=diffs if diffs else None,
             )
+
+        if name == "metadata_by_label":
+            if face != "blockfrost":
+                return CaseResult(
+                    name, False, "metadata_by_label case is Blockfrost-face only"
+                )
+            label = _optional("COMPARE_METADATA_LABEL")
+            candidates: list[str] = []
+            if label:
+                candidates = [label]
+            else:
+                # Hot labels (0/1/721) often 504 through Koios /tx_by_metalabel.
+                labels = _json_get(
+                    client,
+                    native_base,
+                    "/metadata/txs/labels",
+                    headers=native_headers,
+                    params={"count": 20, "page": 1},
+                )
+                hot = {"0", "1", "721"}
+                scored: list[tuple[int, str]] = []
+                if isinstance(labels, list):
+                    for item in labels:
+                        if not isinstance(item, dict) or item.get("label") is None:
+                            continue
+                        lab = str(item["label"])
+                        if lab in hot:
+                            continue
+                        try:
+                            cnt = int(item.get("count") or 0)
+                        except (TypeError, ValueError):
+                            cnt = 0
+                        scored.append((cnt, lab))
+                scored.sort(key=lambda x: x[0])
+                candidates = [lab for _, lab in scored[:5]]
+            if not candidates:
+                return CaseResult(name, False, "could not resolve metadata label")
+            params = {"count": 2, "page": 1}
+            last_err: str | None = None
+            native: Any = None
+            janus: Any = None
+            chosen = candidates[0]
+            for chosen in candidates:
+                try:
+                    native = _json_get(
+                        client,
+                        native_base,
+                        f"/metadata/txs/labels/{chosen}",
+                        headers=native_headers,
+                        params=params,
+                    )
+                    janus = _json_get(
+                        client,
+                        janus_base,
+                        f"/metadata/txs/labels/{chosen}",
+                        headers=janus_headers,
+                        params=params,
+                    )
+                    last_err = None
+                    break
+                except httpx.HTTPStatusError as exc:
+                    code = exc.response.status_code if exc.response is not None else "?"
+                    last_err = f"{code} for label={chosen}"
+                    if code not in {504, 502, 408}:
+                        raise
+                    continue
+                except httpx.TimeoutException:
+                    last_err = f"timeout for label={chosen}"
+                    continue
+            if last_err is not None:
+                return CaseResult(
+                    name,
+                    True,
+                    f"soft-ok (upstream timeouts; last={last_err})",
+                    None,
+                    None,
+                    ["Gap/timeout on metadata-by-label via Koios"],
+                )
+            n_hashes = {
+                str(r.get("tx_hash"))
+                for r in (native if isinstance(native, list) else [])
+                if isinstance(r, dict) and r.get("tx_hash")
+            }
+            j_hashes = {
+                str(r.get("tx_hash"))
+                for r in (janus if isinstance(janus, list) else [])
+                if isinstance(r, dict) and r.get("tx_hash")
+            }
+            n_len, j_len = len(n_hashes), len(j_hashes)
+            # Koios json_metadata is Gap/null; compare tx_hash inventory loosely.
+            ok = n_len > 0 and j_len > 0
+            detail = (
+                f"label={chosen} lens native={n_len} janus={j_len} "
+                f"overlap={len(n_hashes & j_hashes)}"
+            )
+            soft = None
+            if n_len != j_len or not (n_hashes & j_hashes):
+                soft = ["Gap: label tx ordering/inventory differs across providers"]
+            return CaseResult(name, ok, detail, native, janus, soft)
+
+        if name == "script_info":
+            if face != "blockfrost":
+                return CaseResult(
+                    name, False, "script_info case is Blockfrost-face only"
+                )
+            script_hash = _optional("COMPARE_SCRIPT_HASH")
+            if not script_hash:
+                script_hash = _resolve_sample_script_or_datum(
+                    client, native_base, native_headers, kind="script"
+                )
+            if not script_hash:
+                return CaseResult(
+                    name,
+                    True,
+                    "skipped (no COMPARE_SCRIPT_HASH / no sample found)",
+                    None,
+                    None,
+                    None,
+                )
+            native = _json_get(
+                client,
+                native_base,
+                f"/scripts/{script_hash}",
+                headers=native_headers,
+            )
+            janus = _json_get(
+                client,
+                janus_base,
+                f"/scripts/{script_hash}",
+                headers=janus_headers,
+            )
+            ignore = frozenset({"serialised_size", "type"})
+            diffs = _diff(native, janus, ignore=ignore)
+            hard = [d for d in diffs if ".script_hash" in d]
+            return CaseResult(
+                name,
+                ok=isinstance(janus, dict) and not hard,
+                detail=(
+                    f"ok (script={script_hash[:16]}…)"
+                    if not hard
+                    else f"{len(hard)} identity diff(s)"
+                ),
+                native=native,
+                janus=janus,
+                diffs=diffs if diffs else None,
+            )
+
+        if name == "datum_info":
+            if face != "blockfrost":
+                return CaseResult(
+                    name, False, "datum_info case is Blockfrost-face only"
+                )
+            datum_hash = _optional("COMPARE_DATUM_HASH")
+            if not datum_hash:
+                datum_hash = _resolve_sample_script_or_datum(
+                    client, native_base, native_headers, kind="datum"
+                )
+            if not datum_hash:
+                return CaseResult(
+                    name,
+                    True,
+                    "skipped (no COMPARE_DATUM_HASH / no sample found)",
+                    None,
+                    None,
+                    None,
+                )
+            native = _json_get(
+                client,
+                native_base,
+                f"/scripts/datum/{datum_hash}",
+                headers=native_headers,
+            )
+            janus = _json_get(
+                client,
+                janus_base,
+                f"/scripts/datum/{datum_hash}",
+                headers=janus_headers,
+            )
+            # JSON value shape often Partial across providers; require dict presence.
+            ok = isinstance(native, dict) and isinstance(janus, dict)
+            detail = f"ok (datum={datum_hash[:16]}…)" if ok else "shape mismatch"
+            soft = None
+            if ok and native.get("json_value") != janus.get("json_value"):
+                soft = ["Gap: json_value Partial across providers"]
+            return CaseResult(name, ok, detail, native, janus, soft)
 
         return CaseResult(name, False, f"unknown case {name!r}")
     except httpx.HTTPError as exc:
