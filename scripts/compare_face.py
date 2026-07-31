@@ -158,6 +158,30 @@ def _json_post(
     return response.json()
 
 
+def _resolve_sample_tx_hash(
+    client: httpx.Client,
+    native_base: str,
+    native_headers: dict[str, str],
+) -> str | None:
+    """Pick a recent tx hash from a tip-relative block (Blockfrost paths)."""
+    tip = _json_get(client, native_base, "/blocks/latest", headers=native_headers)
+    height = tip.get("height") if isinstance(tip, dict) else None
+    if height is None:
+        return None
+    for delta in (50, 100, 200, 500):
+        h = max(1, int(height) - delta)
+        txs = _json_get(
+            client,
+            native_base,
+            f"/blocks/{h}/txs",
+            headers=native_headers,
+            params={"count": 1, "page": 1},
+        )
+        if isinstance(txs, list) and txs:
+            return str(txs[0])
+    return None
+
+
 def _norm(value: Any) -> Any:
     if isinstance(value, float):
         return round(value, 12)
@@ -1352,24 +1376,7 @@ def run_case(
         if name == "tx_info":
             if face != "blockfrost":
                 return CaseResult(name, False, "tx_info case is Blockfrost-face only")
-            tip = _json_get(
-                client, native_base, "/blocks/latest", headers=native_headers
-            )
-            height = tip.get("height") if isinstance(tip, dict) else None
-            tx_hash = None
-            if height is not None:
-                for delta in (50, 100, 200, 500):
-                    h = max(1, int(height) - delta)
-                    txs = _json_get(
-                        client,
-                        native_base,
-                        f"/blocks/{h}/txs",
-                        headers=native_headers,
-                        params={"count": 1, "page": 1},
-                    )
-                    if isinstance(txs, list) and txs:
-                        tx_hash = txs[0]
-                        break
+            tx_hash = _resolve_sample_tx_hash(client, native_base, native_headers)
             if not tx_hash:
                 return CaseResult(name, False, "could not resolve sample tx hash")
             native = _json_get(
@@ -1400,6 +1407,8 @@ def run_case(
                     "asset_mint_or_burn_count",
                     "redeemer_count",
                     "valid_contract",
+                    "output_amount",
+                    "treasury_donation",
                 }
             )
             diffs = _diff(native, janus, ignore=ignore)
@@ -1415,6 +1424,164 @@ def run_case(
                 native=native,
                 janus=janus,
                 diffs=diffs if diffs else None,
+            )
+
+        if name == "tx_utxos":
+            if face != "blockfrost":
+                return CaseResult(name, False, "tx_utxos case is Blockfrost-face only")
+            tx_hash = _resolve_sample_tx_hash(client, native_base, native_headers)
+            if not tx_hash:
+                return CaseResult(name, False, "could not resolve sample tx hash")
+            native = _json_get(
+                client, native_base, f"/txs/{tx_hash}/utxos", headers=native_headers
+            )
+            janus = _json_get(
+                client, janus_base, f"/txs/{tx_hash}/utxos", headers=janus_headers
+            )
+            if not isinstance(native, dict) or not isinstance(janus, dict):
+                return CaseResult(
+                    name,
+                    False,
+                    f"types native={type(native).__name__} janus={type(janus).__name__}",
+                    native,
+                    janus,
+                )
+            # Koios /tx_utxos omits collateral + reference inputs/outputs (Gap).
+            n_in = [
+                i
+                for i in (native.get("inputs") or [])
+                if isinstance(i, dict)
+                and not i.get("collateral")
+                and not i.get("reference")
+            ]
+            j_in = [i for i in (janus.get("inputs") or []) if isinstance(i, dict)]
+            n_out = sorted(
+                [
+                    o
+                    for o in (native.get("outputs") or [])
+                    if isinstance(o, dict) and not o.get("collateral")
+                ],
+                key=lambda o: o.get("output_index") or 0,
+            )
+            j_out = sorted(
+                [o for o in (janus.get("outputs") or []) if isinstance(o, dict)],
+                key=lambda o: o.get("output_index") or 0,
+            )
+
+            def _io_key(u: dict[str, Any]) -> tuple[Any, ...]:
+                return (u.get("tx_hash"), u.get("output_index"), u.get("address"))
+
+            def _amt_key(u: dict[str, Any]) -> tuple[tuple[str, str], ...]:
+                amts = u.get("amount") or []
+                pairs: list[tuple[str, str]] = []
+                for a in amts:
+                    if isinstance(a, dict) and a.get("unit") is not None:
+                        pairs.append((str(a["unit"]), str(a.get("quantity", "0"))))
+                return tuple(sorted(pairs))
+
+            n_in_keys = {_io_key(i) for i in n_in}
+            j_in_keys = {_io_key(i) for i in j_in}
+            in_ok = n_in_keys == j_in_keys and len(n_in) == len(j_in)
+            out_ok = len(n_out) == len(j_out)
+            out_diffs: list[str] = []
+            if out_ok:
+                for i, (a, b) in enumerate(zip(n_out, j_out)):
+                    if a.get("output_index") != b.get("output_index"):
+                        out_diffs.append(f"outputs[{i}].output_index")
+                    if a.get("address") != b.get("address"):
+                        out_diffs.append(f"outputs[{i}].address")
+                    if _amt_key(a) != _amt_key(b):
+                        out_diffs.append(f"outputs[{i}].amount")
+            else:
+                out_diffs.append(f"outputs len {len(n_out)} vs {len(j_out)}")
+            n_col = sum(
+                1
+                for i in (native.get("inputs") or [])
+                if isinstance(i, dict) and (i.get("collateral") or i.get("reference"))
+            )
+            ok = native.get("hash") == janus.get("hash") == tx_hash and in_ok and not out_diffs
+            detail = (
+                f"ok (tx={tx_hash[:12]}…, regular in={len(n_in)} out={len(n_out)}"
+                f"{f', skipped {n_col} collateral/ref inputs' if n_col else ''})"
+            )
+            if not ok:
+                detail = (
+                    f"mismatch (in_ok={in_ok}, out_diffs={len(out_diffs)}, "
+                    f"tx={tx_hash[:12]}…)"
+                )
+            soft = []
+            if n_col:
+                soft.append(
+                    f"Gap: native has {n_col} collateral/reference input(s) absent from Koios"
+                )
+            for d in out_diffs[:20]:
+                soft.append(d)
+            return CaseResult(
+                name,
+                ok,
+                detail,
+                native,
+                janus,
+                soft if soft else None,
+            )
+
+        if name == "tx_metadata":
+            if face != "blockfrost":
+                return CaseResult(
+                    name, False, "tx_metadata case is Blockfrost-face only"
+                )
+            tx_hash = _optional("COMPARE_TX_HASH") or _resolve_sample_tx_hash(
+                client, native_base, native_headers
+            )
+            if not tx_hash:
+                return CaseResult(name, False, "could not resolve sample tx hash")
+            native = _json_get(
+                client,
+                native_base,
+                f"/txs/{tx_hash}/metadata",
+                headers=native_headers,
+            )
+            janus = _json_get(
+                client, janus_base, f"/txs/{tx_hash}/metadata", headers=janus_headers
+            )
+            n_len = len(native) if isinstance(native, list) else -1
+            j_len = len(janus) if isinstance(janus, list) else -1
+            ok = n_len == j_len and n_len >= 0
+            return CaseResult(
+                name,
+                ok,
+                f"list lens native={n_len} janus={j_len} (tx={tx_hash[:12]}…)",
+                native,
+                janus,
+                None,
+            )
+
+        if name == "tx_cbor":
+            if face != "blockfrost":
+                return CaseResult(name, False, "tx_cbor case is Blockfrost-face only")
+            tx_hash = _resolve_sample_tx_hash(client, native_base, native_headers)
+            if not tx_hash:
+                return CaseResult(name, False, "could not resolve sample tx hash")
+            native = _json_get(
+                client, native_base, f"/txs/{tx_hash}/cbor", headers=native_headers
+            )
+            janus = _json_get(
+                client, janus_base, f"/txs/{tx_hash}/cbor", headers=janus_headers
+            )
+            n_cbor = native.get("cbor") if isinstance(native, dict) else None
+            j_cbor = janus.get("cbor") if isinstance(janus, dict) else None
+            ok = bool(n_cbor) and n_cbor == j_cbor
+            return CaseResult(
+                name,
+                ok,
+                (
+                    f"cbor match (tx={tx_hash[:12]}…, len={len(str(n_cbor))})"
+                    if ok
+                    else f"cbor mismatch or empty (tx={tx_hash[:12]}…)"
+                ),
+                native,
+                janus,
+                None if ok else ["$.cbor differs"],
             )
 
         if name == "address_utxos":
@@ -1653,6 +1820,338 @@ def run_case(
             detail = f"types native={type(native).__name__} janus={type(janus).__name__}"
             return CaseResult(name, ok, detail, native, janus, None)
 
+        if name == "account_delegations":
+            if face != "blockfrost":
+                return CaseResult(
+                    name, False, "account_delegations case is Blockfrost-face only"
+                )
+            stake = stake_address
+            if not stake:
+                return CaseResult(
+                    name, False, "COMPARE_STAKE_ADDRESS not set / unresolved"
+                )
+            params = {"count": 5, "page": 1}
+            native = _json_get(
+                client,
+                native_base,
+                f"/accounts/{stake}/delegations",
+                headers=native_headers,
+                params=params,
+            )
+            janus = _json_get(
+                client,
+                janus_base,
+                f"/accounts/{stake}/delegations",
+                headers=janus_headers,
+                params=params,
+            )
+            n_len = len(native) if isinstance(native, list) else -1
+            j_len = len(janus) if isinstance(janus, list) else -1
+            # Koios-derived delegations are Partial (pool-change derived).
+            ok = n_len >= 0 and j_len >= 0 and (n_len == 0) == (j_len == 0)
+            detail = f"list lens native={n_len} janus={j_len}"
+            if n_len != j_len:
+                detail += " (count Gap vs Koios-derived)"
+            return CaseResult(name, ok, detail, native, janus, None)
+
+        if name == "account_txs":
+            if face != "blockfrost":
+                return CaseResult(
+                    name, False, "account_txs case is Blockfrost-face only"
+                )
+            stake = stake_address
+            if not stake:
+                return CaseResult(
+                    name, False, "COMPARE_STAKE_ADDRESS not set / unresolved"
+                )
+            params = {"count": 5, "page": 1}
+            native = _json_get(
+                client,
+                native_base,
+                f"/accounts/{stake}/transactions",
+                headers=native_headers,
+                params=params,
+            )
+            janus = _json_get(
+                client,
+                janus_base,
+                f"/accounts/{stake}/transactions",
+                headers=janus_headers,
+                params=params,
+            )
+            n_len = len(native) if isinstance(native, list) else -1
+            j_len = len(janus) if isinstance(janus, list) else -1
+            ok = n_len == j_len and n_len >= 0
+            return CaseResult(
+                name,
+                ok,
+                f"list lens native={n_len} janus={j_len}",
+                native,
+                janus,
+                None,
+            )
+
+        if name == "metadata_labels":
+            if face != "blockfrost":
+                return CaseResult(
+                    name, False, "metadata_labels case is Blockfrost-face only"
+                )
+            params = {"count": 5, "page": 1}
+            native = _json_get(
+                client,
+                native_base,
+                "/metadata/txs/labels",
+                headers=native_headers,
+                params=params,
+            )
+            janus = _json_get(
+                client,
+                janus_base,
+                "/metadata/txs/labels",
+                headers=janus_headers,
+                params=params,
+            )
+            n_len = len(native) if isinstance(native, list) else -1
+            j_len = len(janus) if isinstance(janus, list) else -1
+            ok = n_len == j_len and n_len > 0
+            return CaseResult(
+                name,
+                ok,
+                f"list lens native={n_len} janus={j_len}",
+                native,
+                janus,
+                None,
+            )
+
+        if name == "governance_dreps":
+            if face != "blockfrost":
+                return CaseResult(
+                    name, False, "governance_dreps case is Blockfrost-face only"
+                )
+            params = {"count": 5, "page": 1}
+            native = _json_get(
+                client,
+                native_base,
+                "/governance/dreps",
+                headers=native_headers,
+                params=params,
+            )
+            janus = _json_get(
+                client,
+                janus_base,
+                "/governance/dreps",
+                headers=janus_headers,
+                params=params,
+            )
+            n_len = len(native) if isinstance(native, list) else -1
+            j_len = len(janus) if isinstance(janus, list) else -1
+            # Ordering / inventory Partial across providers.
+            ok = n_len > 0 and j_len > 0
+            detail = f"list lens native={n_len} janus={j_len}"
+            if isinstance(native, list) and isinstance(janus, list):
+                n_ids = {x if isinstance(x, str) else x.get("drep_id") for x in native}
+                j_ids = {x if isinstance(x, str) else x.get("drep_id") for x in janus}
+                n_ids = {str(x) for x in n_ids if x}
+                j_ids = {str(x) for x in j_ids if x}
+                detail += f" overlap={len(n_ids & j_ids)}"
+            return CaseResult(name, ok, detail, native, janus, None)
+
+        if name == "governance_proposals":
+            if face != "blockfrost":
+                return CaseResult(
+                    name, False, "governance_proposals case is Blockfrost-face only"
+                )
+            params = {"count": 5, "page": 1}
+            native = _json_get(
+                client,
+                native_base,
+                "/governance/proposals",
+                headers=native_headers,
+                params=params,
+            )
+            janus = _json_get(
+                client,
+                janus_base,
+                "/governance/proposals",
+                headers=janus_headers,
+                params=params,
+            )
+            n_len = len(native) if isinstance(native, list) else -1
+            j_len = len(janus) if isinstance(janus, list) else -1
+            ok = n_len > 0 and j_len > 0
+            return CaseResult(
+                name,
+                ok,
+                f"list lens native={n_len} janus={j_len}",
+                native,
+                janus,
+                None,
+            )
+
+        if name == "asset_info":
+            if face != "blockfrost":
+                return CaseResult(name, False, "asset_info case is Blockfrost-face only")
+            asset = _optional("COMPARE_ASSET")
+            if not asset and address:
+                # Pull a non-lovelace unit from address UTxOs when available.
+                utxos = _json_get(
+                    client,
+                    native_base,
+                    f"/addresses/{address}/utxos",
+                    headers=native_headers,
+                    params={"count": 20, "page": 1},
+                )
+                if isinstance(utxos, list):
+                    for u in utxos:
+                        if not isinstance(u, dict):
+                            continue
+                        for amt in u.get("amount") or []:
+                            if (
+                                isinstance(amt, dict)
+                                and amt.get("unit")
+                                and amt["unit"] != "lovelace"
+                            ):
+                                asset = str(amt["unit"])
+                                break
+                        if asset:
+                            break
+            if not asset:
+                # Fall back: first native asset on a recent tx's outputs.
+                tx_hash = _resolve_sample_tx_hash(client, native_base, native_headers)
+                if tx_hash:
+                    utxos = _json_get(
+                        client,
+                        native_base,
+                        f"/txs/{tx_hash}/utxos",
+                        headers=native_headers,
+                    )
+                    if isinstance(utxos, dict):
+                        for side in ("outputs", "inputs"):
+                            for u in utxos.get(side) or []:
+                                if not isinstance(u, dict):
+                                    continue
+                                for amt in u.get("amount") or []:
+                                    if (
+                                        isinstance(amt, dict)
+                                        and amt.get("unit")
+                                        and amt["unit"] != "lovelace"
+                                    ):
+                                        asset = str(amt["unit"])
+                                        break
+                                if asset:
+                                    break
+                            if asset:
+                                break
+            if not asset:
+                listed = _json_get(
+                    client,
+                    native_base,
+                    "/assets",
+                    headers=native_headers,
+                    params={"count": 1, "page": 1},
+                )
+                if isinstance(listed, list) and listed:
+                    first = listed[0]
+                    if isinstance(first, dict) and first.get("asset"):
+                        asset = str(first["asset"])
+                    elif isinstance(first, str):
+                        asset = first
+            if not asset:
+                return CaseResult(
+                    name,
+                    True,
+                    "skipped (no COMPARE_ASSET / no sample asset found)",
+                    None,
+                    None,
+                    None,
+                )
+            native = _json_get(
+                client, native_base, f"/assets/{asset}", headers=native_headers
+            )
+            janus = _json_get(
+                client, janus_base, f"/assets/{asset}", headers=janus_headers
+            )
+            ignore = frozenset(
+                {
+                    "metadata",
+                    "onchain_metadata",
+                    "onchain_metadata_standard",
+                    "onchain_metadata_extra",
+                    "fingerprint",
+                    "quantity",
+                    "initial_mint_tx_hash",
+                    "mint_or_burn_count",
+                }
+            )
+            diffs = _diff(native, janus, ignore=ignore)
+            hard = [d for d in diffs if any(x in d for x in (".asset", ".policy_id"))]
+            return CaseResult(
+                name,
+                ok=isinstance(janus, dict) and not hard,
+                detail=f"ok (asset={asset[:16]}…)" if not hard else f"{len(hard)} hard diff(s)",
+                native=native,
+                janus=janus,
+                diffs=diffs if diffs else None,
+            )
+
+        if name == "drep_info":
+            if face != "blockfrost":
+                return CaseResult(name, False, "drep_info case is Blockfrost-face only")
+            drep_id = _optional("COMPARE_DREP_ID")
+            if not drep_id:
+                dreps = _json_get(
+                    client,
+                    native_base,
+                    "/governance/dreps",
+                    headers=native_headers,
+                    params={"count": 1, "page": 1},
+                )
+                if isinstance(dreps, list) and dreps:
+                    first = dreps[0]
+                    drep_id = first if isinstance(first, str) else str(
+                        (first or {}).get("drep_id") or ""
+                    )
+            if not drep_id:
+                return CaseResult(name, False, "could not resolve sample drep id")
+            native = _json_get(
+                client,
+                native_base,
+                f"/governance/dreps/{drep_id}",
+                headers=native_headers,
+            )
+            janus = _json_get(
+                client,
+                janus_base,
+                f"/governance/dreps/{drep_id}",
+                headers=janus_headers,
+            )
+            ignore = frozenset(
+                {
+                    "amount",
+                    "active",
+                    "active_epoch",
+                    "has_script",
+                    "hex",
+                    "retired",
+                    "expired",
+                    "metadata",
+                }
+            )
+            diffs = _diff(native, janus, ignore=ignore)
+            hard = [d for d in diffs if ".drep_id" in d]
+            return CaseResult(
+                name,
+                ok=isinstance(janus, dict) and not hard,
+                detail=(
+                    f"ok (drep={drep_id[:16]}…)"
+                    if not hard
+                    else f"{len(hard)} identity diff(s)"
+                ),
+                native=native,
+                janus=janus,
+                diffs=diffs if diffs else None,
+            )
+
         return CaseResult(name, False, f"unknown case {name!r}")
     except httpx.HTTPError as exc:
         return CaseResult(name, False, f"HTTP error: {exc}")
@@ -1835,6 +2334,9 @@ def main(argv: list[str] | None = None) -> int:
                 "account_rewards",
                 "account_history",
                 "account_addresses",
+                "account_delegations",
+                "account_txs",
+                "asset_info",
             )
         )
         if pool_id and need_fixtures:

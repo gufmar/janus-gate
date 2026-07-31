@@ -13,6 +13,7 @@
 
 - Koios returns arrays; Janus unwraps the first hash (batch PoC: first item only on Koios face).
 - Summary: Rename for hash/block/slot/fees/size; cert-count fields on Blockfrost are often Gap/zero when sourced from Koios tip-level `tx_info`.
-- UTxOs: Convert `payment_addr.bech32` → `address`, `value`+`asset_list` → `amount[]`.
+- UTxOs: Convert `payment_addr.bech32` → `address`, `value`+`asset_list` → `amount[]`; sort by `tx_index` / `output_index`.
+- UTxOs Gaps (Koios `/tx_utxos`): no collateral or reference inputs/outputs; `consumed_by_tx` usually absent; datum / ref-script fields often null vs Blockfrost.
 - Metadata: Convert Koios object map → Blockfrost `[{label, json_metadata}]`.
 - CBOR: Compatible `cbor` field inside different envelopes.

@@ -89,33 +89,60 @@ def blockfrost_tx_to_koios_info(payload: dict[str, Any]) -> list[dict[str, Any]]
     ]
 
 
-def _map_koios_utxo_side(entries: list[dict[str, Any]], *, is_input: bool) -> list[dict[str, Any]]:
+def _map_koios_utxo_side(
+    entries: list[dict[str, Any]],
+    *,
+    is_input: bool,
+    parent_tx_hash: str | None = None,
+) -> list[dict[str, Any]]:
     mapped: list[dict[str, Any]] = []
     for entry in entries:
-        item = {
+        item: dict[str, Any] = {
             "address": payment_address(entry),
-            "amount": amount_from_value_and_assets(entry.get("value"), entry.get("asset_list")),
-            "tx_hash": entry.get("tx_hash"),
+            "amount": amount_from_value_and_assets(
+                entry.get("value"), entry.get("asset_list")
+            ),
             "output_index": entry.get("tx_index"),
             "data_hash": entry.get("datum_hash"),
             "inline_datum": entry.get("inline_datum"),
-            "reference_script_hash": None,
-            "collateral": False,
-            "reference": False,
+            "reference_script_hash": entry.get("reference_script_hash")
+            or _koios_ref_script_hash(entry),
+            "collateral": bool(entry.get("collateral") or False),
+            "reference": bool(entry.get("reference") or False),
         }
         if is_input:
+            item["tx_hash"] = entry.get("tx_hash")
+            # Koios /tx_utxos does not expose collateral/reference flags.
             item["collateral"] = False
             item["reference"] = False
+        else:
+            # Native Blockfrost omits tx_hash on outputs; include consumed_by_tx Gap.
+            item["consumed_by_tx"] = entry.get("consumed_by_tx")
         mapped.append(item)
+    mapped.sort(key=lambda u: (u.get("output_index") is None, u.get("output_index") or 0))
     return mapped
+
+
+def _koios_ref_script_hash(entry: dict[str, Any]) -> str | None:
+    ref = entry.get("reference_script")
+    if isinstance(ref, dict):
+        return ref.get("hash") or ref.get("script_hash")
+    if isinstance(ref, str) and ref:
+        return ref
+    return None
 
 
 def koios_tx_utxos_to_blockfrost(rows: Any) -> dict[str, Any]:
     row = first_row(rows, "tx_utxos")
+    tx_hash = row.get("tx_hash")
     return {
-        "hash": row.get("tx_hash"),
-        "inputs": _map_koios_utxo_side(row.get("inputs") or [], is_input=True),
-        "outputs": _map_koios_utxo_side(row.get("outputs") or [], is_input=False),
+        "hash": tx_hash,
+        "inputs": _map_koios_utxo_side(
+            row.get("inputs") or [], is_input=True, parent_tx_hash=tx_hash
+        ),
+        "outputs": _map_koios_utxo_side(
+            row.get("outputs") or [], is_input=False, parent_tx_hash=tx_hash
+        ),
     }
 
 
