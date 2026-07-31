@@ -111,6 +111,29 @@ def test_start_ssh_tunnel_rewrites_dsn() -> None:
     assert kwargs["ssh_address_or_host"] == ("bastion", 22)
     assert kwargs["remote_bind_address"] == ("10.1.2.3", 5432)
     assert kwargs["ssh_password"] == "secret"
+    assert kwargs["allow_agent"] is False
+    assert kwargs["host_pkey_directories"] == []
+
+
+def test_paramiko_dsskey_compat_stub() -> None:
+    import paramiko
+
+    from janus_gate.providers.ssh_tunnel import _ensure_sshtunnel_paramiko_compat
+
+    had = hasattr(paramiko, "DSSKey")
+    if had:
+        original = paramiko.DSSKey
+        delattr(paramiko, "DSSKey")
+    try:
+        _ensure_sshtunnel_paramiko_compat()
+        assert hasattr(paramiko, "DSSKey")
+        # sshtunnel accesses this attribute at import/init time.
+        assert paramiko.DSSKey is not None
+    finally:
+        if had:
+            paramiko.DSSKey = original
+        elif hasattr(paramiko, "DSSKey"):
+            delattr(paramiko, "DSSKey")
 
 
 def test_encrypted_key_without_passphrase_is_clear() -> None:

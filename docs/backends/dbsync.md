@@ -40,6 +40,8 @@ Environment overrides (optional): `JANUS_SSH_TUNNEL`, `JANUS_SSH_HOST`, `JANUS_S
 
 If the private key is encrypted (OpenSSH asks for a passphrase), you **must** set `ssh_tunnel.passphrase` or `JANUS_SSH_PASSPHRASE`. Startup fails with a clear error otherwise.
 
+Janus uses `sshtunnel` with Paramiko 4+/5. A small compatibility shim covers `paramiko.DSSKey` (removed upstream but still referenced by sshtunnel 0.4). Agent and `~/.ssh` auto-key loading are disabled; only the configured key/password are used.
+
 On successful startup Janus logs `dbsync connection ok` with `network` (from `meta`) and `tip_height` (from `block`). Prefer an unencrypted deploy-only key when you do not want a passphrase in config/env.
 
 Do not commit private keys or passwords. An OS-level or infra SSH tunnel remains valid; leave `ssh_tunnel` unset and point `dsn` at `127.0.0.1` in that case.

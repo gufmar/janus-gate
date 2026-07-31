@@ -106,6 +106,25 @@ def _load_pkey(cfg: SshTunnelConfig) -> Any | None:
     return _from_pem(cfg.private_key)
 
 
+def _ensure_sshtunnel_paramiko_compat() -> None:
+    """sshtunnel 0.4 still references paramiko.DSSKey (removed in Paramiko 4+)."""
+    import paramiko
+
+    if hasattr(paramiko, "DSSKey"):
+        return
+
+    class _UnsupportedDSSKey:
+        @classmethod
+        def from_private_key_file(cls, *args: Any, **kwargs: Any) -> Any:
+            raise paramiko.SSHException("DSA/DSS keys are not supported by this Paramiko")
+
+        @classmethod
+        def from_private_key(cls, *args: Any, **kwargs: Any) -> Any:
+            raise paramiko.SSHException("DSA/DSS keys are not supported by this Paramiko")
+
+    paramiko.DSSKey = _UnsupportedDSSKey  # type: ignore[attr-defined, assignment]
+
+
 def start_ssh_tunnel(
     *,
     dsn: str,
@@ -115,6 +134,7 @@ def start_ssh_tunnel(
 
     The returned tunnel object must be stopped by the caller (``tunnel.stop()``).
     """
+    _ensure_sshtunnel_paramiko_compat()
     from sshtunnel import SSHTunnelForwarder
 
     dsn_host, dsn_port = parse_postgres_dsn_host_port(dsn)
@@ -127,6 +147,9 @@ def start_ssh_tunnel(
         "ssh_username": cfg.user,
         "remote_bind_address": (remote_host, remote_port),
         "local_bind_address": (cfg.local_bind_host, cfg.local_bind_port),
+        # Avoid agent / ~/.ssh key scans (also trips DSSKey on older sshtunnel).
+        "allow_agent": False,
+        "host_pkey_directories": [],
     }
     if pkey is not None:
         kwargs["ssh_pkey"] = pkey
