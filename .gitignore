@@ -153,6 +153,7 @@ config.yaml
 .env.*
 !.env.example
 scripts/compare_face.env
+scripts/_compare_dump/
 .envrc
 .venv
 

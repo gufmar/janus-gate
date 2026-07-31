@@ -5,7 +5,7 @@
 | Side | Method | Path |
 | --- | --- | --- |
 | Blockfrost | `GET` | `/epochs/latest`, `/epochs/{number}` |
-| Koios | `GET` | `/epoch_info?epoch_no=eq.{n}` |
+| Koios | `GET` | `/epoch_info?_epoch_no={n}` (also accepts `epoch_no=eq.{n}`) |
 
 | Blockfrost | Koios | Class |
 | --- | --- | --- |
@@ -26,7 +26,7 @@ Latest epoch on Koios backend: resolve current `epoch_no` from `/tip`, then quer
 | Side | Method | Path |
 | --- | --- | --- |
 | Blockfrost | `GET` | `/epochs/latest/parameters`, `/epochs/{number}/parameters` |
-| Koios | `GET` | `/epoch_params?epoch_no=eq.{n}` |
+| Koios | `GET` | `/epoch_params?_epoch_no={n}` (also accepts `epoch_no=eq.{n}`) |
 
 Notable renames: `max_bh_size`↔`max_block_header_size`, `max_epoch`↔`e_max`, `optimal_pool_count`↔`n_opt`, `influence`↔`a0`, `monetary_expand_rate`↔`rho`, `treasury_growth_rate`↔`tau`, `decentralisation`↔`decentralisation_param`, `protocol_major`↔`protocol_major_ver`, `protocol_minor`↔`protocol_minor_ver`, `min_utxo_value`↔`min_utxo`.
 

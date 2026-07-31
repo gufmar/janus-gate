@@ -42,6 +42,24 @@ _DEFAULT_IGNORE = frozenset(
     }
 )
 
+# Documented Gaps when the face is served from a Blockfrost-shaped backend.
+_KOIOS_GAP_IGNORE = frozenset(
+    {
+        "era",
+        "alonzogenesis",
+        "networkid",
+        "total_rewards",
+        "avg_blk_reward",
+        "saturation_pct",
+        "margin",
+        "fixed_cost",
+        "member_rewards",
+        "epoch_ros",
+        "deposit",
+        "pool_group",
+    }
+)
+
 
 @dataclass
 class CaseResult:
@@ -198,6 +216,78 @@ def _filter_pool_history_epochs(rows: Any, epochs: set[int]) -> Any:
     return out
 
 
+def _align_by_epoch(rows: Any) -> dict[int, dict[str, Any]]:
+    """Index pool/epoch history rows by epoch_no for order-independent compare."""
+    out: dict[int, dict[str, Any]] = {}
+    if not isinstance(rows, list):
+        return out
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        epoch = row.get("epoch_no", row.get("epoch"))
+        try:
+            out[int(epoch)] = row
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def _diff_by_epoch(
+    native: Any,
+    janus: Any,
+    *,
+    ignore: frozenset[str],
+) -> list[str]:
+    n_map = _align_by_epoch(native)
+    j_map = _align_by_epoch(janus)
+    diffs: list[str] = []
+    only_n = sorted(set(n_map) - set(j_map))
+    only_j = sorted(set(j_map) - set(n_map))
+    if only_n:
+        diffs.append(f"$: epochs only in native: {only_n[:20]}")
+    if only_j:
+        diffs.append(f"$: epochs only in janus: {only_j[:20]}")
+    for epoch in sorted(set(n_map) & set(j_map)):
+        diffs.extend(
+            _diff(
+                n_map[epoch],
+                j_map[epoch],
+                path=f"$[epoch={epoch}]",
+                ignore=ignore,
+            )
+        )
+    return diffs
+
+
+def _tip_epoch_no(client: httpx.Client, base: str, headers: dict[str, str]) -> int:
+    tip = _json_get(client, base, "/tip", headers=headers)
+    row = tip[0] if isinstance(tip, list) and tip else tip
+    if not isinstance(row, dict) or "epoch_no" not in row:
+        raise ValueError(f"Unexpected tip payload from {base}")
+    return int(row["epoch_no"])
+
+
+def _resolve_compare_epoch(
+    client: httpx.Client,
+    *,
+    face: str,
+    native_base: str,
+    native_headers: dict[str, str],
+    pinned: int | None,
+) -> int | None:
+    """Pick a stable epoch for apple-to-apple compares.
+
+    Prefer COMPARE_EPOCH. Otherwise for Koios use tip.epoch_no - 2 so
+    pool_history (reward lag) and completed epoch_info both have data.
+    """
+    if pinned is not None:
+        return pinned
+    if face != "koios":
+        return None
+    tip_epoch = _tip_epoch_no(client, native_base, native_headers)
+    return max(0, tip_epoch - 2)
+
+
 def run_case(
     client: httpx.Client,
     *,
@@ -209,6 +299,7 @@ def run_case(
     native_headers: dict[str, str],
     pool_id: str,
     epochs: set[int],
+    compare_epoch: int | None,
 ) -> CaseResult:
     try:
         if name == "tip":
@@ -223,7 +314,11 @@ def run_case(
                     client, janus_base, "/blocks/latest", headers=janus_headers
                 )
             # Tip drifts; only compare stable structural keys.
-            ignore = _DEFAULT_IGNORE | frozenset({"epoch", "epoch_no", "block_no"})
+            ignore = (
+                _DEFAULT_IGNORE
+                | _KOIOS_GAP_IGNORE
+                | frozenset({"epoch", "epoch_no", "block_no"})
+            )
             diffs = _diff(native, janus, ignore=ignore)
             # Soft pass for tip: report but do not fail CI hard on slot drift alone.
             ok = True
@@ -235,7 +330,7 @@ def run_case(
         if name == "genesis":
             native = _json_get(client, native_base, "/genesis", headers=native_headers)
             janus = _json_get(client, janus_base, "/genesis", headers=janus_headers)
-            diffs = _diff(native, janus, ignore=frozenset())
+            diffs = _diff(native, janus, ignore=_KOIOS_GAP_IGNORE)
             return CaseResult(
                 name,
                 ok=not diffs,
@@ -246,25 +341,73 @@ def run_case(
             )
 
         if name == "epoch_info":
+            epoch = _resolve_compare_epoch(
+                client,
+                face=face,
+                native_base=native_base,
+                native_headers=native_headers,
+                pinned=compare_epoch,
+            )
             if face == "koios":
+                # Native Koios RPC uses _epoch_no. Older Janus faces used
+                # PostgREST epoch_no=eq.N; current face accepts both.
+                native_params = (
+                    {"_epoch_no": str(epoch)} if epoch is not None else None
+                )
+                janus_params = None
+                if epoch is not None:
+                    janus_params = {
+                        "_epoch_no": str(epoch),
+                        "epoch_no": f"eq.{epoch}",
+                    }
                 native = _json_get(
-                    client, native_base, "/epoch_info", headers=native_headers
+                    client,
+                    native_base,
+                    "/epoch_info",
+                    headers=native_headers,
+                    params=native_params,
                 )
                 janus = _json_get(
-                    client, janus_base, "/epoch_info", headers=janus_headers
+                    client,
+                    janus_base,
+                    "/epoch_info",
+                    headers=janus_headers,
+                    params=janus_params,
                 )
+                detail_epoch = f"epoch={epoch}"
             else:
-                native = _json_get(
-                    client, native_base, "/epochs/latest", headers=native_headers
-                )
-                janus = _json_get(
-                    client, janus_base, "/epochs/latest", headers=janus_headers
-                )
-            diffs = _diff(native, janus, ignore=frozenset({"active_stake"}))
+                if epoch is None:
+                    native = _json_get(
+                        client, native_base, "/epochs/latest", headers=native_headers
+                    )
+                    janus = _json_get(
+                        client, janus_base, "/epochs/latest", headers=janus_headers
+                    )
+                    detail_epoch = "latest"
+                else:
+                    native = _json_get(
+                        client,
+                        native_base,
+                        f"/epochs/{epoch}",
+                        headers=native_headers,
+                    )
+                    janus = _json_get(
+                        client,
+                        janus_base,
+                        f"/epochs/{epoch}",
+                        headers=janus_headers,
+                    )
+                    detail_epoch = f"epoch={epoch}"
+            ignore = _KOIOS_GAP_IGNORE | frozenset({"active_stake"})
+            diffs = _diff(native, janus, ignore=ignore)
             return CaseResult(
                 name,
                 ok=not diffs,
-                detail="ok" if not diffs else f"{len(diffs)} diff(s)",
+                detail=(
+                    f"ok ({detail_epoch})"
+                    if not diffs
+                    else f"{len(diffs)} diff(s) ({detail_epoch})"
+                ),
                 native=native,
                 janus=janus,
                 diffs=diffs,
@@ -311,20 +454,38 @@ def run_case(
         if name == "pool_history":
             if not pool_id:
                 return CaseResult(name, False, "COMPARE_POOL_ID not set")
+            # Prefer explicit COMPARE_EPOCHS; else pin to COMPARE_EPOCH / tip-1.
+            filter_epochs = set(epochs)
+            if not filter_epochs and compare_epoch is not None:
+                filter_epochs = {compare_epoch}
             if face == "koios":
+                # Fetch recent history (Koios-native default is descending).
+                params: dict[str, Any] = {
+                    "_pool_bech32": pool_id,
+                    "limit": 100,
+                    "order": "epoch_no.desc",
+                }
+                if len(filter_epochs) == 1:
+                    only = next(iter(filter_epochs))
+                    params["_epoch_no"] = str(only)
                 native = _json_get(
                     client,
                     native_base,
                     "/pool_history",
                     headers=native_headers,
-                    params={"_pool_bech32": pool_id},
+                    params=params,
                 )
+                # Live Janus may still default to asc until redeployed; force desc.
                 janus = _json_get(
                     client,
                     janus_base,
                     "/pool_history",
                     headers=janus_headers,
-                    params={"_pool_bech32": pool_id},
+                    params={
+                        "_pool_bech32": pool_id,
+                        "limit": 100,
+                        "order": "epoch_no.desc",
+                    },
                 )
             else:
                 native = _json_get(
@@ -341,23 +502,20 @@ def run_case(
                     headers=janus_headers,
                     params={"count": 100, "page": 1},
                 )
-            native = _filter_pool_history_epochs(native, epochs)
-            janus = _filter_pool_history_epochs(janus, epochs)
-            # Known Gap fields on BF→Koios mapping.
-            ignore = frozenset(
-                {
-                    "saturation_pct",
-                    "margin",
-                    "fixed_cost",
-                    "member_rewards",
-                    "epoch_ros",
-                }
+            native = _filter_pool_history_epochs(native, filter_epochs)
+            janus = _filter_pool_history_epochs(janus, filter_epochs)
+            diffs = _diff_by_epoch(native, janus, ignore=_KOIOS_GAP_IGNORE)
+            epoch_note = (
+                f"epochs={sorted(filter_epochs)}" if filter_epochs else "all fetched"
             )
-            diffs = _diff(native, janus, ignore=ignore)
             return CaseResult(
                 name,
                 ok=not diffs,
-                detail="ok" if not diffs else f"{len(diffs)} diff(s)",
+                detail=(
+                    f"ok ({epoch_note})"
+                    if not diffs
+                    else f"{len(diffs)} diff(s) ({epoch_note})"
+                ),
                 native=native,
                 janus=janus,
                 diffs=diffs,
@@ -415,6 +573,10 @@ def main(argv: list[str] | None = None) -> int:
     epochs: set[int] = set()
     if epochs_raw:
         epochs = {int(x.strip()) for x in epochs_raw.split(",") if x.strip()}
+    compare_epoch_raw = _optional("COMPARE_EPOCH")
+    compare_epoch: int | None = (
+        int(compare_epoch_raw) if compare_epoch_raw else None
+    )
 
     cases = [c.strip() for c in args.cases.split(",") if c.strip()]
     janus_headers = _headers_for_face(face, janus_key)
@@ -424,10 +586,25 @@ def main(argv: list[str] | None = None) -> int:
     print(f"janus={janus_base}")
     print(f"native={native_base}")
     print(f"cases={','.join(cases)}")
-    print()
 
     results: list[CaseResult] = []
     with httpx.Client(timeout=60.0, follow_redirects=True) as client:
+        # Resolve a stable completed epoch once for epoch_info + pool_history.
+        if compare_epoch is None and face == "koios":
+            try:
+                compare_epoch = _resolve_compare_epoch(
+                    client,
+                    face=face,
+                    native_base=native_base,
+                    native_headers=native_headers,
+                    pinned=None,
+                )
+            except Exception as exc:  # noqa: BLE001
+                print(f"warning: could not resolve tip epoch ({exc})")
+        if compare_epoch is not None:
+            print(f"COMPARE_EPOCH={compare_epoch}")
+        print()
+
         for name in cases:
             result = run_case(
                 client,
@@ -439,6 +616,7 @@ def main(argv: list[str] | None = None) -> int:
                 native_headers=native_headers,
                 pool_id=pool_id,
                 epochs=epochs,
+                compare_epoch=compare_epoch,
             )
             results.append(result)
             status = "OK" if result.ok else "FAIL"

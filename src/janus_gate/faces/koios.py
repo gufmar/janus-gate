@@ -118,22 +118,28 @@ def build_koios_router() -> APIRouter:
     @router.get("/epoch_info")
     async def epoch_info(
         request: Request,
+        _epoch_no: str | None = Query(default=None),
         epoch_no: str | None = Query(default=None),
     ) -> Any:
         return await run_upstream(
             fetch_epoch_as(
-                ProviderName.KOIOS, request.app.state.backend, _parse_eq_int(epoch_no)
+                ProviderName.KOIOS,
+                request.app.state.backend,
+                _resolve_epoch_no(_epoch_no, epoch_no),
             )
         )
 
     @router.get("/epoch_params")
     async def epoch_params(
         request: Request,
+        _epoch_no: str | None = Query(default=None),
         epoch_no: str | None = Query(default=None),
     ) -> Any:
         return await run_upstream(
             fetch_epoch_parameters_as(
-                ProviderName.KOIOS, request.app.state.backend, _parse_eq_int(epoch_no)
+                ProviderName.KOIOS,
+                request.app.state.backend,
+                _resolve_epoch_no(_epoch_no, epoch_no),
             )
         )
 
@@ -399,7 +405,7 @@ def build_koios_router() -> APIRouter:
         _pool_bech32: str = Query(...),
         limit: int = Query(default=100, ge=1, le=1000),
         offset: int = Query(default=0, ge=0),
-        order: str = Query(default="epoch_no.asc"),
+        order: str = Query(default="epoch_no.desc"),
     ) -> Any:
         count, page, bf_order = _koios_page(limit, offset, order)
         return await run_upstream(
@@ -566,6 +572,16 @@ def _parse_eq_int(value: str | None) -> int | None:
     if value.startswith("eq."):
         value = value[3:]
     return int(value)
+
+
+def _resolve_epoch_no(
+    underscore: str | None,
+    postgrest: str | None,
+) -> int | None:
+    """Prefer native Koios ``_epoch_no``; also accept PostgREST ``epoch_no=eq.N``."""
+    if underscore is not None and underscore != "":
+        return _parse_eq_int(underscore)
+    return _parse_eq_int(postgrest)
 
 
 def _koios_page(limit: int, offset: int, order: str) -> tuple[int, int, str]:

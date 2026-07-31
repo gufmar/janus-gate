@@ -172,48 +172,85 @@ def _fraction_to_pct(value: Any) -> Any:
 def koios_pool_history_to_blockfrost(rows: Any) -> list[dict[str, Any]]:
     if not isinstance(rows, list):
         raise ValueError("Unexpected Koios pool_history payload")
-    return [
-        {
-            "epoch": row.get("epoch_no"),
-            "blocks": row.get("block_cnt") or 0,
-            "active_stake": (
-                None if row.get("active_stake") is None else str(row.get("active_stake"))
-            ),
-            "active_size": _pct_to_fraction(row.get("active_stake_pct")),
-            "delegators_count": row.get("delegator_cnt") or 0,
-            "rewards": (
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        # Blockfrost ``rewards`` is total operator+member rewards (deleg + fees).
+        rewards = _sum_lovelace(row.get("deleg_rewards"), row.get("pool_fees"))
+        if rewards is None:
+            rewards = (
                 None
                 if row.get("deleg_rewards") is None
                 else str(row.get("deleg_rewards"))
-            ),
-            "fees": None if row.get("pool_fees") is None else str(row.get("pool_fees")),
-        }
-        for row in rows
-        if isinstance(row, dict)
-    ]
+            )
+        out.append(
+            {
+                "epoch": row.get("epoch_no"),
+                "blocks": row.get("block_cnt") or 0,
+                "active_stake": (
+                    None
+                    if row.get("active_stake") is None
+                    else str(row.get("active_stake"))
+                ),
+                "active_size": _pct_to_fraction(row.get("active_stake_pct")),
+                "delegators_count": row.get("delegator_cnt") or 0,
+                "rewards": rewards,
+                "fees": (
+                    None if row.get("pool_fees") is None else str(row.get("pool_fees"))
+                ),
+            }
+        )
+    return out
 
 
 def blockfrost_pool_history_to_koios(rows: Any) -> list[dict[str, Any]]:
     if not isinstance(rows, list):
         raise ValueError("Unexpected Blockfrost pool history payload")
-    return [
-        {
-            "epoch_no": row.get("epoch"),
-            "active_stake": row.get("active_stake"),
-            "active_stake_pct": _fraction_to_pct(row.get("active_size")),
-            "saturation_pct": None,
-            "block_cnt": row.get("blocks"),
-            "delegator_cnt": row.get("delegators_count"),
-            "margin": None,
-            "fixed_cost": None,
-            "pool_fees": row.get("fees"),
-            "deleg_rewards": row.get("rewards"),
-            "member_rewards": None,
-            "epoch_ros": None,
-        }
-        for row in rows
-        if isinstance(row, dict)
-    ]
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        fees = row.get("fees")
+        # Undo BF total: deleg_rewards ~= rewards - fees.
+        deleg = _sub_lovelace(row.get("rewards"), fees)
+        if deleg is None and row.get("rewards") is not None:
+            deleg = str(row.get("rewards"))
+        out.append(
+            {
+                "epoch_no": row.get("epoch"),
+                "active_stake": row.get("active_stake"),
+                "active_stake_pct": _fraction_to_pct(row.get("active_size")),
+                "saturation_pct": None,
+                "block_cnt": row.get("blocks"),
+                "delegator_cnt": row.get("delegators_count"),
+                "margin": None,
+                "fixed_cost": None,
+                "pool_fees": None if fees is None else str(fees),
+                "deleg_rewards": deleg,
+                "member_rewards": None,
+                "epoch_ros": None,
+            }
+        )
+    return out
+
+
+def _sum_lovelace(left: Any, right: Any) -> str | None:
+    if left is None or right is None:
+        return None
+    try:
+        return str(int(left) + int(right))
+    except (TypeError, ValueError):
+        return None
+
+
+def _sub_lovelace(left: Any, right: Any) -> str | None:
+    if left is None or right is None:
+        return None
+    try:
+        return str(int(left) - int(right))
+    except (TypeError, ValueError):
+        return None
 
 
 def koios_pool_metadata_to_blockfrost(rows: Any, pool_id: str) -> dict[str, Any] | None:

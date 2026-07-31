@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from janus_gate.faces.errors import BadRequestError, NotFoundError
-from janus_gate.faces.koios import _koios_page
+from janus_gate.faces.koios import _koios_page, _resolve_epoch_no
 from janus_gate.mappers import account as account_mapper
 from janus_gate.mappers import block as block_mapper
 from janus_gate.mappers import pool as pool_mapper
@@ -15,6 +15,13 @@ from janus_gate.mappers import script as script_mapper
 def test_koios_page_aligned() -> None:
     assert _koios_page(100, 0, "asc") == (100, 1, "asc")
     assert _koios_page(100, 200, "epoch_no.desc") == (100, 3, "desc")
+
+
+def test_resolve_epoch_no_prefers_underscore_param() -> None:
+    assert _resolve_epoch_no("640", None) == 640
+    assert _resolve_epoch_no(None, "eq.639") == 639
+    assert _resolve_epoch_no("640", "eq.1") == 640
+    assert _resolve_epoch_no(None, None) is None
 
 
 def test_koios_page_rejects_non_aligned_offset() -> None:
@@ -78,6 +85,7 @@ def test_pool_history_mapping() -> None:
     assert mapped[0]["blocks"] == 2
     assert mapped[0]["active_stake"] == "1000"
     assert mapped[0]["fees"] == "10"
+    assert mapped[0]["rewards"] == "60"  # deleg_rewards + pool_fees
     assert mapped[0]["active_size"] == pytest.approx(0.0027302943272682884)
 
 
@@ -89,14 +97,17 @@ def test_pool_history_active_size_scale_roundtrip() -> None:
             "active_stake": "1000",
             "active_size": 0.0027302943272682884,
             "delegators_count": 5,
-            "rewards": "50",
+            "rewards": "60",
             "fees": "10",
         }
     ]
     koios = pool_mapper.blockfrost_pool_history_to_koios(bf_rows)
     assert koios[0]["active_stake_pct"] == pytest.approx(0.27302943272682884)
+    assert koios[0]["deleg_rewards"] == "50"
+    assert koios[0]["pool_fees"] == "10"
     back = pool_mapper.koios_pool_history_to_blockfrost(koios)
     assert back[0]["active_size"] == pytest.approx(0.0027302943272682884)
+    assert back[0]["rewards"] == "60"
 
 
 def test_tip_mapping_basic() -> None:
