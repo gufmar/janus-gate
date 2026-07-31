@@ -533,6 +533,12 @@ class DbSyncProvider:
             "script": script,
         }
 
+    async def get_address_extended(self, address: str) -> Any:
+        raise _nyi("get_address_extended")
+
+    async def get_address_assets(self, address: str) -> Any:
+        raise _nyi("get_address_assets")
+
     async def get_address_utxos(
         self,
         address: str,
@@ -781,6 +787,36 @@ class DbSyncProvider:
     async def get_pool_relays(self, pool_id: str) -> Any:
         raise _nyi("get_pool_relays")
 
+    async def get_pool_blocks(
+        self,
+        pool_id: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        raise _nyi("get_pool_blocks")
+
+    async def get_pool_updates(
+        self,
+        pool_id: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        raise _nyi("get_pool_updates")
+
+    async def get_pool_votes(
+        self,
+        pool_id: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        raise _nyi("get_pool_votes")
+
     async def get_epoch_blocks(
         self,
         number: int,
@@ -830,3 +866,42 @@ class DbSyncProvider:
 
     async def get_asset(self, asset: str) -> Any:
         raise _nyi("get_asset")
+
+    async def get_assets(
+        self,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        raise _nyi("get_assets")
+
+    async def get_asset_history(
+        self,
+        asset: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        raise _nyi("get_asset_history")
+
+    async def get_asset_transactions(
+        self,
+        asset: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        raise _nyi("get_asset_transactions")
+
+    async def get_asset_addresses(
+        self,
+        asset: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        raise _nyi("get_asset_addresses")

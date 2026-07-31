@@ -18,9 +18,14 @@ from janus_gate.mappers.registry import (
     fetch_account_rewards_as,
     fetch_account_transactions_as,
     fetch_address_as,
+    fetch_address_assets_as,
     fetch_address_transactions_as,
     fetch_address_utxos_as,
+    fetch_asset_addresses_as,
     fetch_asset_as,
+    fetch_asset_history_as,
+    fetch_asset_transactions_as,
+    fetch_assets_as,
     fetch_block_as,
     fetch_block_by_slot_as,
     fetch_block_transactions_as,
@@ -36,10 +41,13 @@ from janus_gate.mappers.registry import (
     fetch_metadata_by_label_as,
     fetch_metadata_labels_as,
     fetch_pool_as,
+    fetch_pool_blocks_as,
     fetch_pool_delegators_as,
     fetch_pool_history_as,
     fetch_pool_metadata_as,
     fetch_pool_relays_as,
+    fetch_pool_updates_as,
+    fetch_pool_votes_as,
     fetch_pools_as,
     fetch_proposals_as,
     fetch_script_as,
@@ -303,6 +311,15 @@ def build_koios_router() -> APIRouter:
             )
         )
 
+    @router.post("/address_assets")
+    async def address_assets(body: AddressListRequest, request: Request) -> Any:
+        address = _first(body.addresses, "_addresses")
+        return await run_upstream(
+            fetch_address_assets_as(
+                ProviderName.KOIOS, request.app.state.backend, address
+            )
+        )
+
     @router.post("/address_utxos")
     async def address_utxos(
         body: AddressListRequest,
@@ -493,6 +510,84 @@ def build_koios_router() -> APIRouter:
             )
         )
 
+    @router.get("/pool_blocks")
+    async def pool_blocks(
+        request: Request,
+        _pool_bech32: str = Query(...),
+        limit: int = Query(default=100, ge=1, le=1000),
+        offset: int = Query(default=0, ge=0),
+        order: str = Query(default="block_height.desc"),
+    ) -> Any:
+        count, page, bf_order = _koios_page(limit, offset, order)
+        return await run_upstream(
+            fetch_pool_blocks_as(
+                ProviderName.KOIOS,
+                request.app.state.backend,
+                _pool_bech32,
+                count=count,
+                page=page,
+                order=bf_order,
+            )
+        )
+
+    @router.get("/pool_updates")
+    async def pool_updates(
+        request: Request,
+        _pool_bech32: str = Query(...),
+        limit: int = Query(default=100, ge=1, le=1000),
+        offset: int = Query(default=0, ge=0),
+        order: str = Query(default="block_time.desc"),
+    ) -> Any:
+        count, page, bf_order = _koios_page(limit, offset, order)
+        return await run_upstream(
+            fetch_pool_updates_as(
+                ProviderName.KOIOS,
+                request.app.state.backend,
+                _pool_bech32,
+                count=count,
+                page=page,
+                order=bf_order,
+            )
+        )
+
+    @router.get("/pool_votes")
+    async def pool_votes(
+        request: Request,
+        _pool_bech32: str = Query(...),
+        limit: int = Query(default=100, ge=1, le=1000),
+        offset: int = Query(default=0, ge=0),
+        order: str = Query(default="block_time.desc"),
+    ) -> Any:
+        count, page, bf_order = _koios_page(limit, offset, order)
+        return await run_upstream(
+            fetch_pool_votes_as(
+                ProviderName.KOIOS,
+                request.app.state.backend,
+                _pool_bech32,
+                count=count,
+                page=page,
+                order=bf_order,
+            )
+        )
+
+    @router.get("/asset_list")
+    async def asset_list(
+        request: Request,
+        limit: int = Query(default=100, ge=1, le=1000),
+        offset: int = Query(default=0, ge=0),
+        order: str = Query(default="policy_id.asc"),
+    ) -> Any:
+        count, page, bf_order = _koios_page(limit, offset, order)
+        return await run_upstream(
+            fetch_assets_as(
+                ProviderName.KOIOS,
+                request.app.state.backend,
+                count=count,
+                page=page,
+                order=bf_order,
+            )
+        )
+
     @router.post("/asset_info")
     async def asset_info(body: AssetListRequest, request: Request) -> Any:
         if not body.asset_list:
@@ -506,6 +601,72 @@ def build_koios_router() -> APIRouter:
             raise BadRequestError("Unsupported _asset_list item")
         return await run_upstream(
             fetch_asset_as(ProviderName.KOIOS, request.app.state.backend, asset)
+        )
+
+    @router.get("/asset_history")
+    async def asset_history(
+        request: Request,
+        _asset_policy: str = Query(...),
+        _asset_name: str = Query(default=""),
+        limit: int = Query(default=100, ge=1, le=1000),
+        offset: int = Query(default=0, ge=0),
+        order: str = Query(default="asc"),
+    ) -> Any:
+        asset = f"{_asset_policy}{_asset_name or ''}"
+        count, page, bf_order = _koios_page(limit, offset, order)
+        return await run_upstream(
+            fetch_asset_history_as(
+                ProviderName.KOIOS,
+                request.app.state.backend,
+                asset,
+                count=count,
+                page=page,
+                order=bf_order,
+            )
+        )
+
+    @router.get("/asset_txs")
+    async def asset_txs(
+        request: Request,
+        _asset_policy: str = Query(...),
+        _asset_name: str = Query(default=""),
+        limit: int = Query(default=100, ge=1, le=1000),
+        offset: int = Query(default=0, ge=0),
+        order: str = Query(default="block_height.desc"),
+    ) -> Any:
+        asset = f"{_asset_policy}{_asset_name or ''}"
+        count, page, bf_order = _koios_page(limit, offset, order)
+        return await run_upstream(
+            fetch_asset_transactions_as(
+                ProviderName.KOIOS,
+                request.app.state.backend,
+                asset,
+                count=count,
+                page=page,
+                order=bf_order,
+            )
+        )
+
+    @router.get("/asset_addresses")
+    async def asset_addresses(
+        request: Request,
+        _asset_policy: str = Query(...),
+        _asset_name: str = Query(default=""),
+        limit: int = Query(default=100, ge=1, le=1000),
+        offset: int = Query(default=0, ge=0),
+        order: str = Query(default="asc"),
+    ) -> Any:
+        asset = f"{_asset_policy}{_asset_name or ''}"
+        count, page, bf_order = _koios_page(limit, offset, order)
+        return await run_upstream(
+            fetch_asset_addresses_as(
+                ProviderName.KOIOS,
+                request.app.state.backend,
+                asset,
+                count=count,
+                page=page,
+                order=bf_order,
+            )
         )
 
     @router.get("/committee_info")

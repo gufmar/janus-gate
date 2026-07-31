@@ -16,9 +16,14 @@ from janus_gate.mappers.registry import (
     fetch_account_rewards_as,
     fetch_account_transactions_as,
     fetch_address_as,
+    fetch_address_extended_as,
     fetch_address_transactions_as,
     fetch_address_utxos_as,
+    fetch_asset_addresses_as,
     fetch_asset_as,
+    fetch_asset_history_as,
+    fetch_asset_transactions_as,
+    fetch_assets_as,
     fetch_block_as,
     fetch_block_by_epoch_slot_as,
     fetch_block_by_slot_as,
@@ -39,10 +44,13 @@ from janus_gate.mappers.registry import (
     fetch_metadata_by_label_as,
     fetch_metadata_labels_as,
     fetch_pool_as,
+    fetch_pool_blocks_as,
     fetch_pool_delegators_as,
     fetch_pool_history_as,
     fetch_pool_metadata_as,
     fetch_pool_relays_as,
+    fetch_pool_updates_as,
+    fetch_pool_votes_as,
     fetch_pools_as,
     fetch_proposals_as,
     fetch_script_as,
@@ -342,6 +350,16 @@ def build_blockfrost_router() -> APIRouter:
             )
         )
 
+    @router.get("/addresses/{address}/extended")
+    async def address_extended(address: str, request: Request):
+        return await run_upstream(
+            fetch_address_extended_as(
+                ProviderName.BLOCKFROST,
+                request.app.state.backend,
+                address,
+            )
+        )
+
     @router.get("/addresses/{address}/utxos")
     async def address_utxos(
         address: str,
@@ -568,11 +586,133 @@ def build_blockfrost_router() -> APIRouter:
             )
         )
 
+    @router.get("/pools/{pool_id}/blocks")
+    async def pool_blocks(
+        pool_id: str,
+        request: Request,
+        count: int = Query(default=100, ge=1, le=100),
+        page: int = Query(default=1, ge=1),
+        order: str = Query(default="asc"),
+    ):
+        params = pagination_params(count, page, order)
+        return await run_upstream(
+            fetch_pool_blocks_as(
+                ProviderName.BLOCKFROST,
+                request.app.state.backend,
+                pool_id,
+                **params,
+            )
+        )
+
+    @router.get("/pools/{pool_id}/updates")
+    async def pool_updates(
+        pool_id: str,
+        request: Request,
+        count: int = Query(default=100, ge=1, le=100),
+        page: int = Query(default=1, ge=1),
+        order: str = Query(default="asc"),
+    ):
+        params = pagination_params(count, page, order)
+        return await run_upstream(
+            fetch_pool_updates_as(
+                ProviderName.BLOCKFROST,
+                request.app.state.backend,
+                pool_id,
+                **params,
+            )
+        )
+
+    @router.get("/pools/{pool_id}/votes")
+    async def pool_votes(
+        pool_id: str,
+        request: Request,
+        count: int = Query(default=100, ge=1, le=100),
+        page: int = Query(default=1, ge=1),
+        order: str = Query(default="asc"),
+    ):
+        params = pagination_params(count, page, order)
+        return await run_upstream(
+            fetch_pool_votes_as(
+                ProviderName.BLOCKFROST,
+                request.app.state.backend,
+                pool_id,
+                **params,
+            )
+        )
+
+    @router.get("/assets")
+    async def assets(
+        request: Request,
+        count: int = Query(default=100, ge=1, le=100),
+        page: int = Query(default=1, ge=1),
+        order: str = Query(default="asc"),
+    ):
+        params = pagination_params(count, page, order)
+        return await run_upstream(
+            fetch_assets_as(
+                ProviderName.BLOCKFROST, request.app.state.backend, **params
+            )
+        )
+
     @router.get("/assets/{asset}")
     async def asset_by_id(asset: str, request: Request):
         return await run_upstream(
             fetch_asset_as(
                 ProviderName.BLOCKFROST, request.app.state.backend, asset
+            )
+        )
+
+    @router.get("/assets/{asset}/history")
+    async def asset_history(
+        asset: str,
+        request: Request,
+        count: int = Query(default=100, ge=1, le=100),
+        page: int = Query(default=1, ge=1),
+        order: str = Query(default="asc"),
+    ):
+        params = pagination_params(count, page, order)
+        return await run_upstream(
+            fetch_asset_history_as(
+                ProviderName.BLOCKFROST,
+                request.app.state.backend,
+                asset,
+                **params,
+            )
+        )
+
+    @router.get("/assets/{asset}/transactions")
+    async def asset_transactions(
+        asset: str,
+        request: Request,
+        count: int = Query(default=100, ge=1, le=100),
+        page: int = Query(default=1, ge=1),
+        order: str = Query(default="asc"),
+    ):
+        params = pagination_params(count, page, order)
+        return await run_upstream(
+            fetch_asset_transactions_as(
+                ProviderName.BLOCKFROST,
+                request.app.state.backend,
+                asset,
+                **params,
+            )
+        )
+
+    @router.get("/assets/{asset}/addresses")
+    async def asset_addresses(
+        asset: str,
+        request: Request,
+        count: int = Query(default=100, ge=1, le=100),
+        page: int = Query(default=1, ge=1),
+        order: str = Query(default="asc"),
+    ):
+        params = pagination_params(count, page, order)
+        return await run_upstream(
+            fetch_asset_addresses_as(
+                ProviderName.BLOCKFROST,
+                request.app.state.backend,
+                asset,
+                **params,
             )
         )
 

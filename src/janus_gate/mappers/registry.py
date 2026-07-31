@@ -218,6 +218,28 @@ async def fetch_address_as(
     )
 
 
+async def fetch_address_extended_as(
+    face: ProviderName,
+    backend: BackendProvider,
+    address: str,
+) -> Any:
+    raw = await backend.get_address_extended(address)
+    return adapt_to_face(
+        face, backend.name, concepts.ADDRESS_EXTENDED, raw, address=address
+    )
+
+
+async def fetch_address_assets_as(
+    face: ProviderName,
+    backend: BackendProvider,
+    address: str,
+) -> Any:
+    raw = await backend.get_address_assets(address)
+    return adapt_to_face(
+        face, backend.name, concepts.ADDRESS_ASSETS, raw, address=address
+    )
+
+
 async def fetch_address_utxos_as(
     face: ProviderName,
     backend: BackendProvider,
@@ -494,6 +516,51 @@ async def fetch_pool_relays_as(
     )
 
 
+async def fetch_pool_blocks_as(
+    face: ProviderName,
+    backend: BackendProvider,
+    pool_id: str,
+    *,
+    count: int = 100,
+    page: int = 1,
+    order: str = "asc",
+) -> Any:
+    raw = await backend.get_pool_blocks(
+        pool_id, count=count, page=page, order=order
+    )
+    return adapt_to_face(face, backend.name, concepts.POOL_BLOCKS, raw)
+
+
+async def fetch_pool_updates_as(
+    face: ProviderName,
+    backend: BackendProvider,
+    pool_id: str,
+    *,
+    count: int = 100,
+    page: int = 1,
+    order: str = "asc",
+) -> Any:
+    raw = await backend.get_pool_updates(
+        pool_id, count=count, page=page, order=order
+    )
+    return adapt_to_face(face, backend.name, concepts.POOL_UPDATES, raw)
+
+
+async def fetch_pool_votes_as(
+    face: ProviderName,
+    backend: BackendProvider,
+    pool_id: str,
+    *,
+    count: int = 100,
+    page: int = 1,
+    order: str = "asc",
+) -> Any:
+    raw = await backend.get_pool_votes(
+        pool_id, count=count, page=page, order=order
+    )
+    return adapt_to_face(face, backend.name, concepts.POOL_VOTES, raw)
+
+
 async def fetch_committee_as(face: ProviderName, backend: BackendProvider) -> Any:
     raw = await backend.get_committee()
     return adapt_to_face(face, backend.name, concepts.COMMITTEE, raw)
@@ -578,3 +645,62 @@ async def fetch_asset_as(
 ) -> Any:
     raw = await backend.get_asset(asset)
     return adapt_to_face(face, backend.name, concepts.ASSET, raw, asset=asset)
+
+
+async def fetch_assets_as(
+    face: ProviderName,
+    backend: BackendProvider,
+    *,
+    count: int = 100,
+    page: int = 1,
+    order: str = "asc",
+) -> Any:
+    raw = await backend.get_assets(count=count, page=page, order=order)
+    return adapt_to_face(face, backend.name, concepts.ASSETS, raw)
+
+
+async def fetch_asset_history_as(
+    face: ProviderName,
+    backend: BackendProvider,
+    asset: str,
+    *,
+    count: int = 100,
+    page: int = 1,
+    order: str = "asc",
+) -> Any:
+    raw = await backend.get_asset_history(
+        asset, count=count, page=page, order=order
+    )
+    return adapt_to_face(
+        face, backend.name, concepts.ASSET_HISTORY, raw, asset=asset
+    )
+
+
+async def fetch_asset_transactions_as(
+    face: ProviderName,
+    backend: BackendProvider,
+    asset: str,
+    *,
+    count: int = 100,
+    page: int = 1,
+    order: str = "asc",
+) -> Any:
+    raw = await backend.get_asset_transactions(
+        asset, count=count, page=page, order=order
+    )
+    return adapt_to_face(face, backend.name, concepts.ASSET_TXS, raw)
+
+
+async def fetch_asset_addresses_as(
+    face: ProviderName,
+    backend: BackendProvider,
+    asset: str,
+    *,
+    count: int = 100,
+    page: int = 1,
+    order: str = "asc",
+) -> Any:
+    raw = await backend.get_asset_addresses(
+        asset, count=count, page=page, order=order
+    )
+    return adapt_to_face(face, backend.name, concepts.ASSET_ADDRESSES, raw)

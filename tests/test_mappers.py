@@ -153,3 +153,79 @@ def test_metalabels_mapping() -> None:
         [{"tx_hash": "abc", "block_height": 1}]
     )
     assert by_label == [{"tx_hash": "abc", "json_metadata": None}]
+
+
+def test_pool_blocks_and_updates_mapping() -> None:
+    blocks = pool_mapper.koios_pool_blocks_to_blockfrost(
+        [{"block_hash": "abc", "block_height": 1}]
+    )
+    assert blocks == ["abc"]
+    back = pool_mapper.blockfrost_pool_blocks_to_koios(blocks)
+    assert back[0]["block_hash"] == "abc"
+    assert back[0]["block_height"] is None
+
+    updates = pool_mapper.koios_pool_updates_to_blockfrost(
+        [{"tx_hash": "t1", "update_type": "registration", "cert_index": 2}]
+    )
+    assert updates == [{"tx_hash": "t1", "cert_index": 2, "action": "registered"}]
+    votes = pool_mapper.koios_pool_votes_to_blockfrost(
+        [{"proposal_tx_hash": "p1", "proposal_index": 0, "vote": "Yes"}]
+    )
+    assert votes[0]["vote"] == "yes"
+    assert votes[0]["tx_hash"] == "p1"
+
+
+def test_asset_list_and_history_mapping() -> None:
+    from janus_gate.mappers import asset as asset_mapper
+
+    listed = asset_mapper.koios_asset_list_to_blockfrost(
+        [{"policy_id": "p" * 56, "asset_name": "aa", "quantity": "3"}]
+    )
+    assert listed[0]["asset"] == ("p" * 56) + "aa"
+    assert listed[0]["quantity"] == "3"
+
+    history = asset_mapper.koios_asset_history_to_blockfrost(
+        [
+            {
+                "minting_txs": [
+                    {"tx_hash": "m1", "quantity": "5"},
+                    {"tx_hash": "b1", "quantity": "-2"},
+                ]
+            }
+        ]
+    )
+    assert history[0]["action"] == "minted"
+    assert history[1]["action"] == "burned"
+    assert history[1]["amount"] == "2"
+
+
+def test_address_extended_and_assets_mapping() -> None:
+    from janus_gate.mappers import address as address_mapper
+
+    koios_rows = [
+        {
+            "address": "addr1test",
+            "balance": "100",
+            "stake_address": "stake1x",
+            "script_address": False,
+            "utxo_set": [],
+        }
+    ]
+    extended = address_mapper.koios_address_to_blockfrost_extended(
+        koios_rows, "addr1test"
+    )
+    assert extended["amount"][0]["decimals"] is None
+    assert extended["amount"][0]["unit"] == "lovelace"
+
+    assets = address_mapper.blockfrost_amounts_to_koios_address_assets(
+        {
+            "address": "addr1test",
+            "amount": [
+                {"unit": "lovelace", "quantity": "1"},
+                {"unit": ("a" * 56) + "bb", "quantity": "9"},
+            ],
+        },
+        "addr1test",
+    )
+    assert assets[0]["asset_list"][0]["policy_id"] == "a" * 56
+    assert assets[0]["asset_list"][0]["asset_name"] == "bb"

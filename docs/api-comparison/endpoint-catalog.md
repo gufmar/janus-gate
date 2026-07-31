@@ -95,11 +95,11 @@ HTTP style note: Blockfrost is mostly `GET` with path params. Koios is often `PO
 | Concept | Blockfrost | Koios | Verdict |
 | --- | --- | --- | --- |
 | Address summary | `GET /addresses/{address}` | `POST /address_info` | **Likely** (PoC done) |
-| Extended address | `GET /addresses/{address}/extended` | richer `address_info` | **Partial** |
+| Extended address | `GET /addresses/{address}/extended` | richer `address_info` | **Partial** (done; decimals/NFT Gaps) |
 | Address totals | `GET /addresses/{address}/total` | derive from info/assets | **Partial** |
 | Address UTxOs | `GET /addresses/{address}/utxos` (+ by asset) | `POST /address_utxos` | **Likely** |
 | Address txs | `GET /addresses/{address}/txs`, `.../transactions` | `POST /address_txs` | **Likely** |
-| Address assets | (via extended/amount) | `POST /address_assets` | **Partial** |
+| Address assets | (via extended/amount) | `POST /address_assets` | **Partial** (done; BF via amount[]) |
 | Address outputs history | — | `POST /address_outputs` | **Koios-only** |
 | Payment credential UTxOs/txs | — | `POST /credential_utxos`, `/credential_txs` | **Koios-only** |
 | Global address list | — | `GET /address_list` | **Koios-only** |
@@ -137,9 +137,9 @@ HTTP style note: Blockfrost is mostly `GET` with path params. Koios is often `PO
 | Metadata | `GET /pools/{id}/metadata` | `POST /pool_metadata` | **Likely** |
 | Relays | `GET /pools/{id}/relays` | `GET /pool_relays` | **Likely** |
 | Delegators | `GET /pools/{id}/delegators` | `GET /pool_delegators` (+ history, invalid) | **Likely** / **Partial** |
-| Pool blocks | `GET /pools/{id}/blocks` | `GET /pool_blocks` | **Likely** |
-| Pool updates | `GET /pools/{id}/updates` | `GET /pool_updates` | **Likely** |
-| Pool votes | `GET /pools/{id}/votes` | `GET /pool_votes` | **Likely** |
+| Pool blocks | `GET /pools/{id}/blocks` | `GET /pool_blocks` | **Likely** (done) |
+| Pool updates | `GET /pools/{id}/updates` | `GET /pool_updates` | **Likely** (done) |
+| Pool votes | `GET /pools/{id}/votes` | `GET /pool_votes` | **Likely** (done; Koios deprecated) |
 | Stake snapshot | — | `GET /pool_stake_snapshot` | **Koios-only** |
 | Owner history | — | `POST /pool_owner_history` | **Koios-only** |
 | Pool groups | — | `GET /pool_groups` | **Koios-only** |
@@ -152,10 +152,10 @@ HTTP style note: Blockfrost is mostly `GET` with path params. Koios is often `PO
 
 | Concept | Blockfrost | Koios | Verdict |
 | --- | --- | --- | --- |
-| Asset list | `GET /assets` | `GET /asset_list` | **Likely** / **Partial** |
+| Asset list | `GET /assets` | `GET /asset_list` | **Likely** / **Partial** (done) |
 | Asset by id | `GET /assets/{asset}` | `POST /asset_info` | **Likely** |
 | Policy assets | `GET /assets/policy/{policy_id}` | `GET /policy_asset_list`, `/policy_asset_info`, `/policy_asset_mints` | **Partial** (Koios richer) |
-| History / txs / addresses / UTxOs | BF `/assets/{asset}/...` | Koios `asset_history`, `asset_txs`, `asset_addresses`, `asset_utxos` | **Likely** |
+| History / txs / addresses / UTxOs | BF `/assets/{asset}/...` | Koios `asset_history`, `asset_txs`, `asset_addresses`, `asset_utxos` | **Likely** (history/txs/addresses done; UTxOs still open) |
 | NFT current address | — | `GET /asset_nft_address` | **Koios-only** |
 | Policy asset addresses | — | `GET /policy_asset_addresses` | **Koios-only** (BF: per-asset addresses) |
 | Token registry | — | `GET /asset_token_registry` | **Koios-only** |

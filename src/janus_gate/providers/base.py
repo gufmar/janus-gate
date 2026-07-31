@@ -80,6 +80,10 @@ class BackendProvider(Protocol):
 
     async def get_address_info(self, address: str) -> Any: ...
 
+    async def get_address_extended(self, address: str) -> Any: ...
+
+    async def get_address_assets(self, address: str) -> Any: ...
+
     async def get_address_utxos(
         self,
         address: str,
@@ -162,6 +166,33 @@ class BackendProvider(Protocol):
 
     async def get_pool_relays(self, pool_id: str) -> Any: ...
 
+    async def get_pool_blocks(
+        self,
+        pool_id: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any: ...
+
+    async def get_pool_updates(
+        self,
+        pool_id: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any: ...
+
+    async def get_pool_votes(
+        self,
+        pool_id: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any: ...
+
     async def get_epoch_blocks(
         self,
         number: int,
@@ -200,7 +231,42 @@ class BackendProvider(Protocol):
         order: str = "asc",
     ) -> Any: ...
 
+    async def get_assets(
+        self,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any: ...
+
     async def get_asset(self, asset: str) -> Any: ...
+
+    async def get_asset_history(
+        self,
+        asset: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any: ...
+
+    async def get_asset_transactions(
+        self,
+        asset: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any: ...
+
+    async def get_asset_addresses(
+        self,
+        asset: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any: ...
 
     async def aclose(self) -> None: ...
 

@@ -369,3 +369,135 @@ def blockfrost_pool_relays_to_koios(
                 }
             )
     return [{"pool_id_bech32": pool_id, "relays": relays}]
+
+
+def koios_pool_blocks_to_blockfrost(rows: Any) -> list[str]:
+    if not isinstance(rows, list):
+        raise ValueError("Unexpected Koios pool_blocks payload")
+    return [
+        str(row.get("block_hash"))
+        for row in rows
+        if isinstance(row, dict) and row.get("block_hash")
+    ]
+
+
+def blockfrost_pool_blocks_to_koios(rows: Any) -> list[dict[str, Any]]:
+    if not isinstance(rows, list):
+        raise ValueError("Unexpected Blockfrost pool blocks payload")
+    return [
+        {
+            "block_hash": h,
+            "epoch_no": None,
+            "epoch_slot": None,
+            "abs_slot": None,
+            "block_height": None,
+            "block_time": None,
+        }
+        for h in rows
+        if isinstance(h, str)
+    ]
+
+
+def koios_pool_updates_to_blockfrost(rows: Any) -> list[dict[str, Any]]:
+    if not isinstance(rows, list):
+        raise ValueError("Unexpected Koios pool_updates payload")
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        update_type = (row.get("update_type") or "").lower()
+        if update_type.startswith("dereg"):
+            action = "deregistered"
+        else:
+            action = "registered"
+        out.append(
+            {
+                "tx_hash": row.get("tx_hash") or row.get("meta_tx_hash"),
+                "cert_index": row.get("cert_index") if row.get("cert_index") is not None else 0,
+                "action": action,
+            }
+        )
+    return out
+
+
+def blockfrost_pool_updates_to_koios(rows: Any) -> list[dict[str, Any]]:
+    if not isinstance(rows, list):
+        raise ValueError("Unexpected Blockfrost pool updates payload")
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        action = (row.get("action") or "").lower()
+        update_type = (
+            "deregistration" if action.startswith("dereg") else "registration"
+        )
+        out.append(
+            {
+                "tx_hash": row.get("tx_hash"),
+                "block_time": None,
+                "pool_id_bech32": None,
+                "pool_id_hex": None,
+                "active_epoch_no": None,
+                "vrf_key_hash": None,
+                "margin": None,
+                "fixed_cost": None,
+                "pledge": None,
+                "reward_addr": None,
+                "owners": None,
+                "relays": None,
+                "meta_url": None,
+                "meta_hash": None,
+                "meta_json": None,
+                "pool_status": None,
+                "retiring_epoch": None,
+                "update_type": update_type,
+            }
+        )
+    return out
+
+
+def koios_pool_votes_to_blockfrost(rows: Any) -> list[dict[str, Any]]:
+    if not isinstance(rows, list):
+        raise ValueError("Unexpected Koios pool_votes payload")
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        vote_raw = str(row.get("vote") or "").lower()
+        if vote_raw in {"yes", "y"}:
+            vote = "yes"
+        elif vote_raw in {"no", "n"}:
+            vote = "no"
+        else:
+            vote = "abstain"
+        out.append(
+            {
+                "tx_hash": row.get("proposal_tx_hash") or row.get("tx_hash"),
+                "cert_index": row.get("proposal_index")
+                if row.get("proposal_index") is not None
+                else 0,
+                "vote": vote,
+            }
+        )
+    return out
+
+
+def blockfrost_pool_votes_to_koios(rows: Any) -> list[dict[str, Any]]:
+    if not isinstance(rows, list):
+        raise ValueError("Unexpected Blockfrost pool votes payload")
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        vote = str(row.get("vote") or "abstain")
+        out.append(
+            {
+                "proposal_tx_hash": row.get("tx_hash"),
+                "proposal_index": row.get("cert_index"),
+                "vote": vote[:1].upper() + vote[1:].lower() if vote else "Abstain",
+                "block_time": None,
+                "meta_url": None,
+                "meta_hash": None,
+            }
+        )
+    return out

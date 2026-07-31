@@ -1126,6 +1126,59 @@ def run_case(
                 None,
             )
 
+        if name in {"pool_blocks", "pool_updates", "pool_votes"}:
+            if not pool_id:
+                return CaseResult(name, False, "COMPARE_POOL_ID not set")
+            path_map = {
+                "pool_blocks": ("/pool_blocks", "/blocks"),
+                "pool_updates": ("/pool_updates", "/updates"),
+                "pool_votes": ("/pool_votes", "/votes"),
+            }
+            koios_path, bf_suffix = path_map[name]
+            if face == "koios":
+                params = {"_pool_bech32": pool_id, "limit": 5}
+                native = _json_get(
+                    client,
+                    native_base,
+                    koios_path,
+                    headers=native_headers,
+                    params=params,
+                )
+                janus = _json_get(
+                    client,
+                    janus_base,
+                    koios_path,
+                    headers=janus_headers,
+                    params=params,
+                )
+            else:
+                params = {"count": 5, "page": 1}
+                native = _json_get(
+                    client,
+                    native_base,
+                    f"/pools/{pool_id}{bf_suffix}",
+                    headers=native_headers,
+                    params=params,
+                )
+                janus = _json_get(
+                    client,
+                    janus_base,
+                    f"/pools/{pool_id}{bf_suffix}",
+                    headers=janus_headers,
+                    params=params,
+                )
+            n_len = len(native) if isinstance(native, list) else -1
+            j_len = len(janus) if isinstance(janus, list) else -1
+            ok = n_len == j_len and n_len >= 0
+            return CaseResult(
+                name,
+                ok,
+                f"list lens native={n_len} janus={j_len}",
+                native,
+                janus,
+                None,
+            )
+
         if name == "block_info":
             if face == "koios":
                 tip = _json_get(client, native_base, "/tip", headers=native_headers)
@@ -1273,6 +1326,71 @@ def run_case(
                 native=native,
                 janus=janus,
                 diffs=diffs if diffs else None,
+            )
+
+        if name == "address_extended":
+            addr = address
+            if not addr:
+                return CaseResult(name, False, "COMPARE_ADDRESS not set / unresolved")
+            if face != "blockfrost":
+                return CaseResult(
+                    name, True, "skipped (Blockfrost-face only)", None, None, None
+                )
+            native = _json_get(
+                client,
+                native_base,
+                f"/addresses/{addr}/extended",
+                headers=native_headers,
+            )
+            janus = _json_get(
+                client,
+                janus_base,
+                f"/addresses/{addr}/extended",
+                headers=janus_headers,
+            )
+            ignore = frozenset(
+                {"amount", "decimals", "has_nft_onchain_metadata"}
+            )
+            diffs = _diff(native, janus, ignore=ignore)
+            hard = [d for d in diffs if ".address" in d or d.endswith(".address")]
+            return CaseResult(
+                name,
+                ok=not hard,
+                detail=(
+                    "ok (identity)"
+                    if not hard
+                    else f"{len(hard)} identity diff(s); {len(diffs)} total"
+                ),
+                native=native,
+                janus=janus,
+                diffs=diffs if diffs else None,
+            )
+
+        if name == "address_assets":
+            addr = address
+            if not addr:
+                return CaseResult(name, False, "COMPARE_ADDRESS not set / unresolved")
+            if face != "koios":
+                return CaseResult(
+                    name, True, "skipped (Koios-face only)", None, None, None
+                )
+            body = {"_addresses": [addr]}
+            native = _json_post(
+                client, native_base, "/address_assets", body, headers=native_headers
+            )
+            janus = _json_post(
+                client, janus_base, "/address_assets", body, headers=janus_headers
+            )
+            n_len = len(native) if isinstance(native, list) else -1
+            j_len = len(janus) if isinstance(janus, list) else -1
+            ok = n_len == j_len and n_len >= 0
+            return CaseResult(
+                name,
+                ok,
+                f"list lens native={n_len} janus={j_len}",
+                native,
+                janus,
+                None,
             )
 
         if name == "account_info":
@@ -3096,6 +3214,274 @@ def run_case(
                 soft = ["Gap: json_value Partial across providers"]
             return CaseResult(name, ok, detail, native, janus, soft)
 
+        if name == "era_summaries":
+            if face == "koios":
+                native = _json_get(
+                    client, native_base, "/era_summaries", headers=native_headers
+                )
+                janus = _json_get(
+                    client, janus_base, "/era_summaries", headers=janus_headers
+                )
+                n_len = len(native) if isinstance(native, list) else -1
+                j_len = len(janus) if isinstance(janus, list) else -1
+                # Cross-backend mapping is Partial; same-provider should match length.
+                ok = n_len > 0 and j_len > 0
+                soft = None
+                if n_len != j_len:
+                    soft = [f"era list lens native={n_len} janus={j_len}"]
+                return CaseResult(
+                    name,
+                    ok,
+                    f"list lens native={n_len} janus={j_len}",
+                    native,
+                    janus,
+                    soft,
+                )
+            native = _json_get(
+                client, native_base, "/network/eras", headers=native_headers
+            )
+            janus = _json_get(
+                client, janus_base, "/network/eras", headers=janus_headers
+            )
+            n_len = len(native) if isinstance(native, list) else -1
+            j_len = len(janus) if isinstance(janus, list) else -1
+            ok = n_len > 0 and j_len > 0
+            soft = None
+            if n_len != j_len:
+                soft = [
+                    "Gap: era count may differ when Janus maps Koios era_summaries"
+                ]
+            # Soft field compare: require start.epoch presence on both when same len.
+            hard = []
+            if ok and n_len == j_len and isinstance(native, list) and isinstance(janus, list):
+                for i, (a, b) in enumerate(zip(native, janus)):
+                    if not isinstance(a, dict) or not isinstance(b, dict):
+                        hard.append(f"$[{i}] type mismatch")
+                        continue
+                    a_ep = (a.get("start") or {}).get("epoch") if isinstance(a.get("start"), dict) else None
+                    b_ep = (b.get("start") or {}).get("epoch") if isinstance(b.get("start"), dict) else None
+                    if a_ep is not None and b_ep is not None and a_ep != b_ep:
+                        hard.append(f"$[{i}].start.epoch {a_ep} vs {b_ep}")
+            return CaseResult(
+                name,
+                ok=ok and not hard,
+                detail=f"list lens native={n_len} janus={j_len}",
+                native=native,
+                janus=janus,
+                diffs=(hard or soft) if (hard or soft) else None,
+            )
+
+        if name == "blocks_next":
+            if face != "blockfrost":
+                return CaseResult(
+                    name, False, "blocks_next case is Blockfrost-face only"
+                )
+            tip = _json_get(
+                client, native_base, "/blocks/latest", headers=native_headers
+            )
+            height = tip.get("height") if isinstance(tip, dict) else None
+            if height is None:
+                return CaseResult(name, False, "could not resolve tip height")
+            anchor = max(1, int(height) - 50)
+            params = {"count": 3, "page": 1}
+            native = _json_get(
+                client,
+                native_base,
+                f"/blocks/{anchor}/next",
+                headers=native_headers,
+                params=params,
+            )
+            janus = _json_get(
+                client,
+                janus_base,
+                f"/blocks/{anchor}/next",
+                headers=janus_headers,
+                params=params,
+            )
+            n_hashes = [
+                r.get("hash")
+                for r in (native if isinstance(native, list) else [])
+                if isinstance(r, dict) and r.get("hash")
+            ]
+            j_hashes = [
+                r.get("hash")
+                for r in (janus if isinstance(janus, list) else [])
+                if isinstance(r, dict) and r.get("hash")
+            ]
+            ok = len(n_hashes) > 0 and n_hashes == j_hashes
+            return CaseResult(
+                name,
+                ok,
+                f"from={anchor} lens native={len(n_hashes)} janus={len(j_hashes)}",
+                native,
+                janus,
+                None if ok else ["block hash sequence mismatch"],
+            )
+
+        if name == "blocks_previous":
+            if face != "blockfrost":
+                return CaseResult(
+                    name, False, "blocks_previous case is Blockfrost-face only"
+                )
+            tip = _json_get(
+                client, native_base, "/blocks/latest", headers=native_headers
+            )
+            height = tip.get("height") if isinstance(tip, dict) else None
+            if height is None:
+                return CaseResult(name, False, "could not resolve tip height")
+            anchor = max(10, int(height) - 20)
+            params = {"count": 3, "page": 1}
+            native = _json_get(
+                client,
+                native_base,
+                f"/blocks/{anchor}/previous",
+                headers=native_headers,
+                params=params,
+            )
+            janus = _json_get(
+                client,
+                janus_base,
+                f"/blocks/{anchor}/previous",
+                headers=janus_headers,
+                params=params,
+            )
+            n_hashes = [
+                r.get("hash")
+                for r in (native if isinstance(native, list) else [])
+                if isinstance(r, dict) and r.get("hash")
+            ]
+            j_hashes = [
+                r.get("hash")
+                for r in (janus if isinstance(janus, list) else [])
+                if isinstance(r, dict) and r.get("hash")
+            ]
+            ok = len(n_hashes) > 0 and set(n_hashes) == set(j_hashes)
+            soft = None
+            if ok and n_hashes != j_hashes:
+                soft = ["order differs (hash set matches)"]
+            return CaseResult(
+                name,
+                ok,
+                f"from={anchor} lens native={len(n_hashes)} janus={len(j_hashes)}",
+                native,
+                janus,
+                soft,
+            )
+
+        if name == "block_by_slot":
+            if face == "koios":
+                tip = _json_get(client, native_base, "/tip", headers=native_headers)
+                tip_row = tip[0] if isinstance(tip, list) and tip else tip
+                height = (
+                    tip_row.get("block_height") if isinstance(tip_row, dict) else None
+                )
+                if height is None:
+                    return CaseResult(name, False, "could not resolve tip height")
+                rows = _json_get(
+                    client,
+                    native_base,
+                    "/blocks",
+                    headers=native_headers,
+                    params={
+                        "block_height": f"eq.{max(1, int(height) - 30)}",
+                        "limit": 1,
+                    },
+                )
+                if not isinstance(rows, list) or not rows:
+                    return CaseResult(name, False, "could not resolve sample block")
+                slot = rows[0].get("abs_slot")
+                expect_hash = rows[0].get("hash")
+                if slot is None:
+                    return CaseResult(name, False, "sample block missing abs_slot")
+                params = {"abs_slot": f"eq.{slot}", "limit": 1}
+                native = _json_get(
+                    client,
+                    native_base,
+                    "/blocks",
+                    headers=native_headers,
+                    params=params,
+                )
+                janus = _json_get(
+                    client,
+                    janus_base,
+                    "/blocks",
+                    headers=janus_headers,
+                    params=params,
+                )
+                # Janus may return full block_info array; native returns thin /blocks row.
+                def _hash_of(payload: Any) -> str | None:
+                    if isinstance(payload, list) and payload:
+                        first = payload[0]
+                        if isinstance(first, dict):
+                            return first.get("hash")
+                    if isinstance(payload, dict):
+                        return payload.get("hash")
+                    return None
+
+                n_hash = _hash_of(native) or expect_hash
+                j_hash = _hash_of(janus)
+                ok = bool(n_hash) and n_hash == j_hash
+                return CaseResult(
+                    name,
+                    ok,
+                    f"slot={slot} hash={(n_hash or '')[:12]}…",
+                    native,
+                    janus,
+                    None if ok else ["hash mismatch / missing"],
+                )
+
+            tip = _json_get(
+                client, native_base, "/blocks/latest", headers=native_headers
+            )
+            height = tip.get("height") if isinstance(tip, dict) else None
+            if height is None:
+                return CaseResult(name, False, "could not resolve tip height")
+            sample = _json_get(
+                client,
+                native_base,
+                f"/blocks/{max(1, int(height) - 30)}",
+                headers=native_headers,
+            )
+            if not isinstance(sample, dict) or sample.get("slot") is None:
+                return CaseResult(name, False, "sample block missing slot")
+            slot = int(sample["slot"])
+            native = _json_get(
+                client, native_base, f"/blocks/slot/{slot}", headers=native_headers
+            )
+            janus = _json_get(
+                client, janus_base, f"/blocks/slot/{slot}", headers=janus_headers
+            )
+            n_hash = native.get("hash") if isinstance(native, dict) else None
+            j_hash = janus.get("hash") if isinstance(janus, dict) else None
+            ok = bool(n_hash) and n_hash == j_hash
+            soft = None
+            if ok and isinstance(native, dict) and isinstance(janus, dict):
+                ignore = _DEFAULT_IGNORE | frozenset(
+                    {
+                        "confirmations",
+                        "output",
+                        "fees",
+                        "size",
+                        "tx_count",
+                        "block_vrf",
+                        "op_cert",
+                        "op_cert_counter",
+                        "previous_block",
+                        "next_block",
+                        "slot_leader",
+                    }
+                )
+                diffs = _diff(native, janus, ignore=ignore)
+                soft = diffs if diffs else None
+            return CaseResult(
+                name,
+                ok,
+                f"slot={slot} hash={(n_hash or '')[:12]}…",
+                native,
+                janus,
+                soft,
+            )
+
         return CaseResult(name, False, f"unknown case {name!r}")
     except httpx.HTTPError as exc:
         return CaseResult(name, False, f"HTTP error: {exc}")
@@ -3281,6 +3667,8 @@ def main(argv: list[str] | None = None) -> int:
                 "account_delegations",
                 "account_txs",
                 "asset_info",
+                "address_extended",
+                "address_assets",
             )
         )
         if pool_id and need_fixtures:

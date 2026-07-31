@@ -63,6 +63,111 @@ def koios_address_to_blockfrost(rows: Any, address: str) -> dict[str, Any]:
     }
 
 
+def koios_address_to_blockfrost_extended(rows: Any, address: str) -> dict[str, Any]:
+    """Map Koios address_info to Blockfrost /addresses/{address}/extended (Partial)."""
+    base = koios_address_to_blockfrost(rows, address)
+    extended_amount: list[dict[str, Any]] = []
+    for item in base.get("amount") or []:
+        if not isinstance(item, dict):
+            continue
+        extended_amount.append(
+            {
+                "unit": item.get("unit"),
+                "quantity": item.get("quantity"),
+                "decimals": None,
+                "has_nft_onchain_metadata": False,
+            }
+        )
+    return {
+        "address": base.get("address"),
+        "amount": extended_amount,
+        "stake_address": base.get("stake_address"),
+        "type": base.get("type"),
+        "script": base.get("script"),
+    }
+
+
+def blockfrost_extended_to_koios(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """Reuse summary mapping; decimals/NFT flags are Gap when facing Koios."""
+    summary = {
+        "address": payload.get("address"),
+        "amount": [
+            {"unit": a.get("unit"), "quantity": a.get("quantity")}
+            for a in (payload.get("amount") or [])
+            if isinstance(a, dict)
+        ],
+        "stake_address": payload.get("stake_address"),
+        "script": payload.get("script"),
+    }
+    return blockfrost_address_to_koios(summary)
+
+
+def koios_address_assets_to_blockfrost(rows: Any) -> list[dict[str, Any]]:
+    if not isinstance(rows, list):
+        raise ValueError("Unexpected Koios address_assets payload")
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        nested = row.get("asset_list")
+        if isinstance(nested, list):
+            for asset in nested:
+                if not isinstance(asset, dict):
+                    continue
+                policy = asset.get("policy_id") or ""
+                name = asset.get("asset_name") or ""
+                out.append(
+                    {
+                        "unit": f"{policy}{name}",
+                        "quantity": (
+                            None
+                            if asset.get("quantity") is None
+                            else str(asset.get("quantity"))
+                        ),
+                    }
+                )
+        elif row.get("policy_id"):
+            policy = row.get("policy_id") or ""
+            name = row.get("asset_name") or ""
+            out.append(
+                {
+                    "unit": f"{policy}{name}",
+                    "quantity": (
+                        None
+                        if row.get("quantity") is None
+                        else str(row.get("quantity"))
+                    ),
+                }
+            )
+    return out
+
+
+def blockfrost_amounts_to_koios_address_assets(
+    rows: Any, address: str
+) -> list[dict[str, Any]]:
+    """Map BF amount[] (or address summary) into Koios address_assets shape."""
+    if isinstance(rows, dict):
+        amounts = rows.get("amount") or []
+        address = str(rows.get("address") or address)
+    else:
+        amounts = rows if isinstance(rows, list) else []
+    assets: list[dict[str, Any]] = []
+    for item in amounts:
+        if not isinstance(item, dict):
+            continue
+        unit = str(item.get("unit") or "")
+        if not unit or unit == "lovelace" or len(unit) < 56:
+            continue
+        assets.append(
+            {
+                "policy_id": unit[:56],
+                "asset_name": unit[56:],
+                "quantity": item.get("quantity"),
+            }
+        )
+    return [{"address": address, "asset_list": assets}]
+
+
 def blockfrost_address_to_koios(payload: dict[str, Any]) -> list[dict[str, Any]]:
     """Map Blockfrost address content to Koios /address_info array shape."""
     lovelace = "0"

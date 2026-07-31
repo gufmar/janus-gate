@@ -41,6 +41,8 @@ EPOCH_BLOCKS = "epoch_blocks"
 BLOCK = "block"
 BLOCK_TXS = "block_txs"
 ADDRESS = "address"
+ADDRESS_EXTENDED = "address_extended"
+ADDRESS_ASSETS = "address_assets"
 ADDRESS_UTXOS = "address_utxos"
 ADDRESS_TXS = "address_txs"
 TX = "tx"
@@ -59,6 +61,9 @@ POOL_HISTORY = "pool_history"
 POOL_METADATA = "pool_metadata"
 POOL_DELEGATORS = "pool_delegators"
 POOL_RELAYS = "pool_relays"
+POOL_BLOCKS = "pool_blocks"
+POOL_UPDATES = "pool_updates"
+POOL_VOTES = "pool_votes"
 COMMITTEE = "committee"
 DREPS = "dreps"
 DREP = "drep"
@@ -68,6 +73,10 @@ DATUM = "datum"
 METADATA_LABELS = "metadata_labels"
 METADATA_BY_LABEL = "metadata_by_label"
 ASSET = "asset"
+ASSETS = "assets"
+ASSET_HISTORY = "asset_history"
+ASSET_TXS = "asset_txs"
+ASSET_ADDRESSES = "asset_addresses"
 ERA_SUMMARIES = "era_summaries"
 
 
@@ -93,6 +102,16 @@ def _bf_block_txs_to_koios(raw: Any, **ctx: Any) -> Any:
 
 def _koios_address_to_bf(raw: Any, **ctx: Any) -> Any:
     return address_mapper.koios_address_to_blockfrost(raw, ctx["address"])
+
+
+def _koios_address_extended_to_bf(raw: Any, **ctx: Any) -> Any:
+    return address_mapper.koios_address_to_blockfrost_extended(raw, ctx["address"])
+
+
+def _bf_address_assets_to_koios(raw: Any, **ctx: Any) -> Any:
+    return address_mapper.blockfrost_amounts_to_koios_address_assets(
+        raw, ctx["address"]
+    )
 
 
 def _koios_address_utxos_to_bf(raw: Any, **ctx: Any) -> Any:
@@ -196,6 +215,13 @@ def _bf_pool_relays_to_koios(raw: Any, **ctx: Any) -> Any:
     return pool_mapper.blockfrost_pool_relays_to_koios(raw, ctx["pool_id"])
 
 
+def _bf_asset_history_to_koios(raw: Any, **ctx: Any) -> Any:
+    policy_id, asset_name = asset_mapper.split_blockfrost_asset_id(ctx["asset"])
+    return asset_mapper.blockfrost_asset_history_to_koios(
+        raw, policy_id, asset_name
+    )
+
+
 def _koios_drep_to_bf(raw: Any, **ctx: Any) -> Any:
     return governance_mapper.koios_drep_info_to_blockfrost(raw, ctx["drep_id"])
 
@@ -293,6 +319,14 @@ _ADAPTERS: dict[tuple[str, str, str], Adapter] = {
     ("koios", "blockfrost", BLOCK_TXS): _bf_block_txs_to_koios,
     ("blockfrost", "koios", ADDRESS): _koios_address_to_bf,
     ("koios", "blockfrost", ADDRESS): _one(address_mapper.blockfrost_address_to_koios),
+    ("blockfrost", "koios", ADDRESS_EXTENDED): _koios_address_extended_to_bf,
+    ("koios", "blockfrost", ADDRESS_EXTENDED): _one(
+        address_mapper.blockfrost_extended_to_koios
+    ),
+    ("blockfrost", "koios", ADDRESS_ASSETS): _one(
+        address_mapper.koios_address_assets_to_blockfrost
+    ),
+    ("koios", "blockfrost", ADDRESS_ASSETS): _bf_address_assets_to_koios,
     ("blockfrost", "koios", ADDRESS_UTXOS): _koios_address_utxos_to_bf,
     ("koios", "blockfrost", ADDRESS_UTXOS): _one(
         address_mapper.blockfrost_address_utxos_to_koios
@@ -349,6 +383,24 @@ _ADAPTERS: dict[tuple[str, str, str], Adapter] = {
         pool_mapper.koios_pool_relays_to_blockfrost
     ),
     ("koios", "blockfrost", POOL_RELAYS): _bf_pool_relays_to_koios,
+    ("blockfrost", "koios", POOL_BLOCKS): _one(
+        pool_mapper.koios_pool_blocks_to_blockfrost
+    ),
+    ("koios", "blockfrost", POOL_BLOCKS): _one(
+        pool_mapper.blockfrost_pool_blocks_to_koios
+    ),
+    ("blockfrost", "koios", POOL_UPDATES): _one(
+        pool_mapper.koios_pool_updates_to_blockfrost
+    ),
+    ("koios", "blockfrost", POOL_UPDATES): _one(
+        pool_mapper.blockfrost_pool_updates_to_koios
+    ),
+    ("blockfrost", "koios", POOL_VOTES): _one(
+        pool_mapper.koios_pool_votes_to_blockfrost
+    ),
+    ("koios", "blockfrost", POOL_VOTES): _one(
+        pool_mapper.blockfrost_pool_votes_to_koios
+    ),
     ("blockfrost", "koios", COMMITTEE): _one(
         governance_mapper.koios_committee_to_blockfrost
     ),
@@ -387,6 +439,22 @@ _ADAPTERS: dict[tuple[str, str, str], Adapter] = {
     ),
     ("blockfrost", "koios", ASSET): _koios_asset_to_bf,
     ("koios", "blockfrost", ASSET): _one(asset_mapper.blockfrost_asset_to_koios),
+    ("blockfrost", "koios", ASSETS): _one(asset_mapper.koios_asset_list_to_blockfrost),
+    ("koios", "blockfrost", ASSETS): _one(asset_mapper.blockfrost_asset_list_to_koios),
+    ("blockfrost", "koios", ASSET_HISTORY): _one(
+        asset_mapper.koios_asset_history_to_blockfrost
+    ),
+    ("koios", "blockfrost", ASSET_HISTORY): _bf_asset_history_to_koios,
+    ("blockfrost", "koios", ASSET_TXS): _one(asset_mapper.koios_asset_txs_to_blockfrost),
+    ("koios", "blockfrost", ASSET_TXS): _one(
+        asset_mapper.blockfrost_asset_txs_to_koios
+    ),
+    ("blockfrost", "koios", ASSET_ADDRESSES): _one(
+        asset_mapper.koios_asset_addresses_to_blockfrost
+    ),
+    ("koios", "blockfrost", ASSET_ADDRESSES): _one(
+        asset_mapper.blockfrost_asset_addresses_to_koios
+    ),
     ("blockfrost", "koios", ERA_SUMMARIES): _one(
         era_mapper.koios_era_summaries_to_blockfrost
     ),

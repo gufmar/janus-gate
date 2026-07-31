@@ -319,6 +319,16 @@ class KoiosProvider(HttpProvider):
             json={"_addresses": [address]},
         )
 
+    async def get_address_extended(self, address: str) -> Any:
+        return await self.get_address_info(address)
+
+    async def get_address_assets(self, address: str) -> Any:
+        return await self.request(
+            "POST",
+            "/address_assets",
+            json={"_addresses": [address]},
+        )
+
     async def get_address_utxos(
         self,
         address: str,
@@ -510,6 +520,63 @@ class KoiosProvider(HttpProvider):
             ]
         return []
 
+    async def get_pool_blocks(
+        self,
+        pool_id: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        return await self.request(
+            "GET",
+            "/pool_blocks",
+            params={
+                "_pool_bech32": pool_id,
+                "limit": count,
+                "offset": page_to_offset(page, count),
+                "order": f"block_height.{'desc' if order == 'desc' else 'asc'}",
+            },
+        )
+
+    async def get_pool_updates(
+        self,
+        pool_id: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        return await self.request(
+            "GET",
+            "/pool_updates",
+            params={
+                "_pool_bech32": pool_id,
+                "limit": count,
+                "offset": page_to_offset(page, count),
+                "order": f"block_time.{'desc' if order == 'desc' else 'asc'}",
+            },
+        )
+
+    async def get_pool_votes(
+        self,
+        pool_id: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        return await self.request(
+            "GET",
+            "/pool_votes",
+            params={
+                "_pool_bech32": pool_id,
+                "limit": count,
+                "offset": page_to_offset(page, count),
+                "order": f"block_time.{'desc' if order == 'desc' else 'asc'}",
+            },
+        )
+
     async def get_epoch_blocks(
         self,
         number: int,
@@ -603,6 +670,23 @@ class KoiosProvider(HttpProvider):
             },
         )
 
+    async def get_assets(
+        self,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        return await self.request(
+            "GET",
+            "/asset_list",
+            params={
+                "limit": count,
+                "offset": page_to_offset(page, count),
+                "order": f"policy_id.{'desc' if order == 'desc' else 'asc'}",
+            },
+        )
+
     async def get_asset(self, asset: str) -> Any:
         if len(asset) < 56:
             from janus_gate.providers.base import ProviderError
@@ -620,4 +704,98 @@ class KoiosProvider(HttpProvider):
             "POST",
             "/asset_info",
             json={"_asset_list": [[policy_id, asset_name]]},
+        )
+
+    async def get_asset_history(
+        self,
+        asset: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        if len(asset) < 56:
+            from janus_gate.providers.base import ProviderError
+
+            raise ProviderError(
+                400,
+                {
+                    "status_code": 400,
+                    "error": "Bad Request",
+                    "message": "Invalid asset id",
+                },
+            )
+        policy_id, asset_name = asset[:56], asset[56:]
+        return await self.request(
+            "GET",
+            "/asset_history",
+            params={
+                "_asset_policy": policy_id,
+                "_asset_name": asset_name,
+                "limit": count,
+                "offset": page_to_offset(page, count),
+            },
+        )
+
+    async def get_asset_transactions(
+        self,
+        asset: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        if len(asset) < 56:
+            from janus_gate.providers.base import ProviderError
+
+            raise ProviderError(
+                400,
+                {
+                    "status_code": 400,
+                    "error": "Bad Request",
+                    "message": "Invalid asset id",
+                },
+            )
+        policy_id, asset_name = asset[:56], asset[56:]
+        return await self.request(
+            "GET",
+            "/asset_txs",
+            params={
+                "_asset_policy": policy_id,
+                "_asset_name": asset_name,
+                "limit": count,
+                "offset": page_to_offset(page, count),
+                "order": f"block_height.{'desc' if order == 'desc' else 'asc'}",
+            },
+        )
+
+    async def get_asset_addresses(
+        self,
+        asset: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        if len(asset) < 56:
+            from janus_gate.providers.base import ProviderError
+
+            raise ProviderError(
+                400,
+                {
+                    "status_code": 400,
+                    "error": "Bad Request",
+                    "message": "Invalid asset id",
+                },
+            )
+        policy_id, asset_name = asset[:56], asset[56:]
+        return await self.request(
+            "GET",
+            "/asset_addresses",
+            params={
+                "_asset_policy": policy_id,
+                "_asset_name": asset_name,
+                "limit": count,
+                "offset": page_to_offset(page, count),
+            },
         )

@@ -119,6 +119,13 @@ class BlockfrostProvider(HttpProvider):
     async def get_address_info(self, address: str) -> Any:
         return await self.request("GET", f"/addresses/{address}")
 
+    async def get_address_extended(self, address: str) -> Any:
+        return await self.request("GET", f"/addresses/{address}/extended")
+
+    async def get_address_assets(self, address: str) -> Any:
+        # Blockfrost has no dedicated address-assets route; reuse summary amounts.
+        return await self.get_address_info(address)
+
     async def get_address_utxos(
         self,
         address: str,
@@ -239,6 +246,48 @@ class BlockfrostProvider(HttpProvider):
     async def get_pool_relays(self, pool_id: str) -> Any:
         return await self.request("GET", f"/pools/{pool_id}/relays")
 
+    async def get_pool_blocks(
+        self,
+        pool_id: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        return await self.request(
+            "GET",
+            f"/pools/{pool_id}/blocks",
+            params={"count": count, "page": page, "order": order},
+        )
+
+    async def get_pool_updates(
+        self,
+        pool_id: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        return await self.request(
+            "GET",
+            f"/pools/{pool_id}/updates",
+            params={"count": count, "page": page, "order": order},
+        )
+
+    async def get_pool_votes(
+        self,
+        pool_id: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        return await self.request(
+            "GET",
+            f"/pools/{pool_id}/votes",
+            params={"count": count, "page": page, "order": order},
+        )
+
     async def get_epoch_blocks(
         self,
         number: int,
@@ -302,5 +351,60 @@ class BlockfrostProvider(HttpProvider):
             params={"count": count, "page": page, "order": order},
         )
 
+    async def get_assets(
+        self,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        return await self.request(
+            "GET",
+            "/assets",
+            params={"count": count, "page": page, "order": order},
+        )
+
     async def get_asset(self, asset: str) -> Any:
         return await self.request("GET", f"/assets/{asset}")
+
+    async def get_asset_history(
+        self,
+        asset: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        return await self.request(
+            "GET",
+            f"/assets/{asset}/history",
+            params={"count": count, "page": page, "order": order},
+        )
+
+    async def get_asset_transactions(
+        self,
+        asset: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        return await self.request(
+            "GET",
+            f"/assets/{asset}/transactions",
+            params={"count": count, "page": page, "order": order},
+        )
+
+    async def get_asset_addresses(
+        self,
+        asset: str,
+        *,
+        count: int = 100,
+        page: int = 1,
+        order: str = "asc",
+    ) -> Any:
+        return await self.request(
+            "GET",
+            f"/assets/{asset}/addresses",
+            params={"count": count, "page": page, "order": order},
+        )
