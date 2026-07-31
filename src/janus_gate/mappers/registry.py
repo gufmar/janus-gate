@@ -303,7 +303,33 @@ async def fetch_pool_as(
     face: ProviderName, backend: BackendProvider, pool_id: str
 ) -> Any:
     raw = await backend.get_pool(pool_id)
-    return adapt_to_face(face, backend.name, concepts.POOL, raw)
+    adapted = adapt_to_face(face, backend.name, concepts.POOL, raw)
+    # Blockfrost /pools/{id} omits relays; merge from /relays for Koios face.
+    if (
+        face is ProviderName.KOIOS
+        and backend.name == "blockfrost"
+        and isinstance(adapted, list)
+        and adapted
+        and isinstance(adapted[0], dict)
+    ):
+        try:
+            relays_raw = await backend.get_pool_relays(pool_id)
+            relays_face = adapt_to_face(
+                face,
+                backend.name,
+                concepts.POOL_RELAYS,
+                relays_raw,
+                pool_id=pool_id,
+            )
+            if (
+                isinstance(relays_face, list)
+                and relays_face
+                and isinstance(relays_face[0], dict)
+            ):
+                adapted[0]["relays"] = relays_face[0].get("relays") or []
+        except Exception:  # noqa: BLE001
+            adapted[0]["relays"] = adapted[0].get("relays") or []
+    return adapted
 
 
 async def fetch_pool_history_as(

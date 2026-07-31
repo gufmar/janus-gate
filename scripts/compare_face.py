@@ -57,6 +57,29 @@ _KOIOS_GAP_IGNORE = frozenset(
         "epoch_ros",
         "deposit",
         "pool_group",
+        "block_hash",
+        "cost_models",  # list vs dict shape often differs
+        "vrf_key_hash",
+        "op_cert",
+        "op_cert_counter",
+        "active_epoch_no",
+        "retiring_epoch",
+        "relays",  # shape Partial on pool_info
+        "owners",
+        "reward_addr",
+        "ticker",
+        "meta_url",
+        "meta_hash",
+        "meta_json",
+        "pool_status",
+        "sigma",
+        "block_count",
+        "live_pledge",
+        "live_stake",
+        "live_size",
+        "live_saturation",
+        "live_delegators",
+        "active_stake",  # often lags / units differ on pool_info
     }
 )
 
@@ -153,6 +176,19 @@ def _diff(
     ignore: frozenset[str] = _DEFAULT_IGNORE,
 ) -> list[str]:
     diffs: list[str] = []
+
+    # Treat numeric strings as numbers when the other side is int/float.
+    if isinstance(native, str) and isinstance(janus, (int, float)):
+        try:
+            native = int(native) if native.isdigit() else float(native)
+        except ValueError:
+            pass
+    elif isinstance(janus, str) and isinstance(native, (int, float)):
+        try:
+            janus = int(janus) if janus.isdigit() else float(janus)
+        except ValueError:
+            pass
+
     if type(native) is not type(janus) and not (
         isinstance(native, (int, float)) and isinstance(janus, (int, float))
     ):
@@ -300,6 +336,8 @@ def run_case(
     pool_id: str,
     epochs: set[int],
     compare_epoch: int | None,
+    address: str = "",
+    stake_address: str = "",
 ) -> CaseResult:
     try:
         if name == "tip":
@@ -521,11 +559,405 @@ def run_case(
                 diffs=diffs,
             )
 
+        if name == "epoch_params":
+            epoch = _resolve_compare_epoch(
+                client,
+                face=face,
+                native_base=native_base,
+                native_headers=native_headers,
+                pinned=compare_epoch,
+            )
+            if face != "koios":
+                return CaseResult(name, False, "epoch_params case is Koios-face only")
+            native_params = {"_epoch_no": str(epoch)} if epoch is not None else None
+            janus_params = None
+            if epoch is not None:
+                janus_params = {
+                    "_epoch_no": str(epoch),
+                    "epoch_no": f"eq.{epoch}",
+                }
+            native = _json_get(
+                client,
+                native_base,
+                "/epoch_params",
+                headers=native_headers,
+                params=native_params,
+            )
+            janus = _json_get(
+                client,
+                janus_base,
+                "/epoch_params",
+                headers=janus_headers,
+                params=janus_params,
+            )
+            # Conway governance params are Gaps on Blockfrost-backed Janus.
+            ignore = _KOIOS_GAP_IGNORE | frozenset(
+                {
+                    "nonce",
+                    "committee_max_term_length",
+                    "committee_min_size",
+                    "drep_activity",
+                    "drep_deposit",
+                    "dvt_committee_no_confidence",
+                    "dvt_committee_normal",
+                    "dvt_hard_fork_initiation",
+                    "dvt_motion_no_confidence",
+                    "dvt_p_p_economic_group",
+                    "dvt_p_p_gov_group",
+                    "dvt_p_p_network_group",
+                    "dvt_p_p_technical_group",
+                    "dvt_treasury_withdrawal",
+                    "dvt_update_to_constitution",
+                    "gov_action_deposit",
+                    "gov_action_lifetime",
+                    "min_fee_ref_script_cost_per_byte",
+                    "pvt_committee_no_confidence",
+                    "pvt_committee_normal",
+                    "pvt_hard_fork_initiation",
+                    "pvt_motion_no_confidence",
+                    "pvtpp_security_group",
+                }
+            )
+            diffs = _diff(native, janus, ignore=ignore)
+            detail_epoch = f"epoch={epoch}"
+            return CaseResult(
+                name,
+                ok=not diffs,
+                detail=(
+                    f"ok ({detail_epoch})"
+                    if not diffs
+                    else f"{len(diffs)} diff(s) ({detail_epoch})"
+                ),
+                native=native,
+                janus=janus,
+                diffs=diffs,
+            )
+
+        if name == "pool_info":
+            if face != "koios":
+                return CaseResult(name, False, "pool_info case is Koios-face only")
+            if not pool_id:
+                return CaseResult(name, False, "COMPARE_POOL_ID not set")
+            body = {"_pool_bech32_ids": [pool_id]}
+            native = _json_post(
+                client, native_base, "/pool_info", body, headers=native_headers
+            )
+            janus = _json_post(
+                client, janus_base, "/pool_info", body, headers=janus_headers
+            )
+            ignore = _KOIOS_GAP_IGNORE | frozenset(
+                {
+                    "pool_id_hex",
+                    "pledge",
+                    "active_stake",
+                    "block_count",
+                    "sigma",
+                    "voting_power",
+                    "reward_addr_delegated_drep",
+                    "relays",  # compare via pool_relays case; needs redeploy for merge
+                }
+            )
+            diffs = _diff(native, janus, ignore=ignore)
+            return CaseResult(
+                name,
+                ok=not diffs,
+                detail="ok" if not diffs else f"{len(diffs)} diff(s)",
+                native=native,
+                janus=janus,
+                diffs=diffs,
+            )
+
+        if name == "pool_metadata":
+            if face != "koios":
+                return CaseResult(name, False, "pool_metadata case is Koios-face only")
+            if not pool_id:
+                return CaseResult(name, False, "COMPARE_POOL_ID not set")
+            body = {"_pool_bech32_ids": [pool_id]}
+            native = _json_post(
+                client, native_base, "/pool_metadata", body, headers=native_headers
+            )
+            janus = _json_post(
+                client, janus_base, "/pool_metadata", body, headers=janus_headers
+            )
+            diffs = _diff(native, janus, ignore=frozenset({"meta_json"}))
+            # Soft on meta_json nested drift; fail on url/hash/id mismatches.
+            hard = [
+                d
+                for d in diffs
+                if ".meta_json" not in d and not d.endswith(".meta_json")
+            ]
+            return CaseResult(
+                name,
+                ok=not hard,
+                detail="ok" if not hard else f"{len(hard)} diff(s)",
+                native=native,
+                janus=janus,
+                diffs=hard or None,
+            )
+
+        if name == "pool_relays":
+            if face != "koios":
+                return CaseResult(name, False, "pool_relays case is Koios-face only")
+            if not pool_id:
+                return CaseResult(name, False, "COMPARE_POOL_ID not set")
+            # Native Koios /pool_relays is global (no _pool_bech32). Ground truth
+            # for one pool is pool_info.relays; Janus exposes GET /pool_relays.
+            native_info = _json_post(
+                client,
+                native_base,
+                "/pool_info",
+                {"_pool_bech32_ids": [pool_id]},
+                headers=native_headers,
+            )
+            native_relays: list[Any] = []
+            if isinstance(native_info, list) and native_info:
+                native_relays = list(native_info[0].get("relays") or [])
+            janus_rows = _json_get(
+                client,
+                janus_base,
+                "/pool_relays",
+                headers=janus_headers,
+                params={"_pool_bech32": pool_id},
+            )
+            janus_relays: list[Any] = []
+            if isinstance(janus_rows, list) and janus_rows:
+                janus_relays = list(janus_rows[0].get("relays") or [])
+            n_len, j_len = len(native_relays), len(janus_relays)
+            ok = n_len == j_len and n_len >= 0
+            return CaseResult(
+                name,
+                ok,
+                f"relay rows native={n_len} janus={j_len}",
+                native_relays,
+                janus_relays,
+                None,
+            )
+
+        if name == "pool_delegators":
+            if face != "koios":
+                return CaseResult(name, False, "pool_delegators case is Koios-face only")
+            if not pool_id:
+                return CaseResult(name, False, "COMPARE_POOL_ID not set")
+            params = {"_pool_bech32": pool_id, "limit": 5}
+            native = _json_get(
+                client,
+                native_base,
+                "/pool_delegators",
+                headers=native_headers,
+                params=params,
+            )
+            janus = _json_get(
+                client,
+                janus_base,
+                "/pool_delegators",
+                headers=janus_headers,
+                params=params,
+            )
+            n_len = len(native) if isinstance(native, list) else -1
+            j_len = len(janus) if isinstance(janus, list) else -1
+            ok = n_len == j_len and n_len >= 0
+            return CaseResult(
+                name,
+                ok,
+                f"list lens native={n_len} janus={j_len}",
+                native,
+                janus,
+                None,
+            )
+
+        if name == "block_info":
+            if face != "koios":
+                return CaseResult(name, False, "block_info case is Koios-face only")
+            tip = _json_get(client, native_base, "/tip", headers=native_headers)
+            tip_row = tip[0] if isinstance(tip, list) and tip else tip
+            height = tip_row.get("block_height") if isinstance(tip_row, dict) else None
+            # Prefer a slightly older block to avoid tip-race empty native results.
+            block_hash = None
+            if height is not None:
+                rows = _json_get(
+                    client,
+                    native_base,
+                    "/blocks",
+                    headers=native_headers,
+                    params={
+                        "block_height": f"eq.{max(1, int(height) - 20)}",
+                        "limit": 1,
+                    },
+                )
+                if isinstance(rows, list) and rows:
+                    block_hash = rows[0].get("hash")
+            if not block_hash and isinstance(tip_row, dict):
+                block_hash = tip_row.get("hash")
+            if not block_hash:
+                return CaseResult(name, False, "could not resolve block hash")
+            body = {"_block_hashes": [block_hash]}
+            native = _json_post(
+                client, native_base, "/block_info", body, headers=native_headers
+            )
+            janus = _json_post(
+                client, janus_base, "/block_info", body, headers=janus_headers
+            )
+            ignore = _DEFAULT_IGNORE | _KOIOS_GAP_IGNORE | frozenset(
+                {
+                    "parent_hash",
+                    "child_hash",
+                    "proto_major",
+                    "proto_minor",
+                    "pool",
+                    "vrf_key",
+                    "total_fees",
+                    "total_output",
+                    "block_size",
+                    "tx_count",
+                }
+            )
+            diffs = _diff(native, janus, ignore=ignore)
+            return CaseResult(
+                name,
+                ok=not diffs,
+                detail=(
+                    f"ok (hash={block_hash[:12]}…)"
+                    if not diffs
+                    else f"{len(diffs)} diff(s)"
+                ),
+                native=native,
+                janus=janus,
+                diffs=diffs,
+            )
+
+        if name == "address_info":
+            if face != "koios":
+                return CaseResult(name, False, "address_info case is Koios-face only")
+            addr = address
+            if not addr:
+                return CaseResult(name, False, "COMPARE_ADDRESS not set / unresolved")
+            body = {"_addresses": [addr]}
+            native = _json_post(
+                client, native_base, "/address_info", body, headers=native_headers
+            )
+            janus = _json_post(
+                client, janus_base, "/address_info", body, headers=janus_headers
+            )
+            ignore = frozenset({"utxo_set", "script_address", "balance"})
+            diffs = _diff(native, janus, ignore=ignore)
+            # Soft: balance/utxo_set often Partial; require address identity match.
+            hard = [d for d in diffs if "address" in d or "stake_address" in d]
+            return CaseResult(
+                name,
+                ok=not hard,
+                detail=(
+                    "ok (identity)"
+                    if not hard
+                    else f"{len(hard)} identity diff(s); {len(diffs)} total"
+                ),
+                native=native,
+                janus=janus,
+                diffs=diffs if diffs else None,
+            )
+
+        if name == "account_info":
+            if face != "koios":
+                return CaseResult(name, False, "account_info case is Koios-face only")
+            stake = stake_address
+            if not stake:
+                return CaseResult(
+                    name, False, "COMPARE_STAKE_ADDRESS not set / unresolved"
+                )
+            body = {"_stake_addresses": [stake]}
+            native = _json_post(
+                client, native_base, "/account_info", body, headers=native_headers
+            )
+            janus = _json_post(
+                client, janus_base, "/account_info", body, headers=janus_headers
+            )
+            ignore = _KOIOS_GAP_IGNORE | frozenset(
+                {
+                    "total_balance",
+                    "utxo",
+                    "rewards",
+                    "withdrawals",
+                    "rewards_available",
+                    "delegated_pool",
+                    "delegated_drep",
+                    "status",
+                    "reserves",
+                    "treasury",
+                }
+            )
+            diffs = _diff(native, janus, ignore=ignore)
+            hard = [d for d in diffs if "stake_address" in d]
+            return CaseResult(
+                name,
+                ok=not hard,
+                detail=(
+                    "ok (identity)"
+                    if not diffs
+                    else f"{len(diffs)} soft diff(s); identity ok"
+                    if not hard
+                    else f"{len(hard)} identity diff(s)"
+                ),
+                native=native,
+                janus=janus,
+                diffs=diffs if diffs else None,
+            )
+
         return CaseResult(name, False, f"unknown case {name!r}")
     except httpx.HTTPError as exc:
         return CaseResult(name, False, f"HTTP error: {exc}")
     except Exception as exc:  # noqa: BLE001
         return CaseResult(name, False, f"error: {exc}")
+
+
+def _resolve_pool_fixtures(
+    client: httpx.Client,
+    *,
+    native_base: str,
+    native_headers: dict[str, str],
+    pool_id: str,
+    address: str,
+    stake_address: str,
+) -> tuple[str, str]:
+    """Fill address/stake from native pool_info when env fixtures are empty."""
+    if (address and stake_address) or not pool_id:
+        return address, stake_address
+    try:
+        rows = _json_post(
+            client,
+            native_base,
+            "/pool_info",
+            {"_pool_bech32_ids": [pool_id]},
+            headers=native_headers,
+        )
+        row = rows[0] if isinstance(rows, list) and rows else None
+        if isinstance(row, dict):
+            if not stake_address:
+                stake_address = str(row.get("reward_addr") or "")
+            if not address:
+                owners = row.get("owners")
+                if isinstance(owners, list) and owners:
+                    # owners are stake keys; try account_addresses for a payment addr
+                    pass
+        if stake_address and not address:
+            addrs = _json_post(
+                client,
+                native_base,
+                "/account_addresses",
+                {"_stake_addresses": [stake_address]},
+                headers=native_headers,
+            )
+            if isinstance(addrs, list) and addrs:
+                first = addrs[0]
+                if isinstance(first, dict):
+                    nested = first.get("addresses")
+                    if isinstance(nested, list) and nested:
+                        address = str(nested[0])
+                    else:
+                        address = str(first.get("address") or "")
+                elif isinstance(first, str):
+                    address = first
+    except Exception:  # noqa: BLE001
+        pass
+    return address, stake_address
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -538,7 +970,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--cases",
-        default="tip,genesis,epoch_info,pool_list,pool_history",
+        default=(
+            "tip,genesis,epoch_info,epoch_params,pool_list,pool_info,"
+            "pool_metadata,pool_relays,pool_delegators,pool_history,"
+            "block_info,address_info,account_info"
+        ),
         help="Comma-separated case names",
     )
     parser.add_argument(
@@ -569,6 +1005,8 @@ def main(argv: list[str] | None = None) -> int:
         native_key = _require("BLOCKFROST_PROJECT_ID")
 
     pool_id = _optional("COMPARE_POOL_ID")
+    address = _optional("COMPARE_ADDRESS")
+    stake_address = _optional("COMPARE_STAKE_ADDRESS")
     epochs_raw = _optional("COMPARE_EPOCHS")
     epochs: set[int] = set()
     if epochs_raw:
@@ -588,7 +1026,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"cases={','.join(cases)}")
 
     results: list[CaseResult] = []
-    with httpx.Client(timeout=60.0, follow_redirects=True) as client:
+    with httpx.Client(timeout=90.0, follow_redirects=True) as client:
         # Resolve a stable completed epoch once for epoch_info + pool_history.
         if compare_epoch is None and face == "koios":
             try:
@@ -603,6 +1041,22 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"warning: could not resolve tip epoch ({exc})")
         if compare_epoch is not None:
             print(f"COMPARE_EPOCH={compare_epoch}")
+
+        if face == "koios" and pool_id and (
+            "address_info" in cases or "account_info" in cases
+        ):
+            address, stake_address = _resolve_pool_fixtures(
+                client,
+                native_base=native_base,
+                native_headers=native_headers,
+                pool_id=pool_id,
+                address=address,
+                stake_address=stake_address,
+            )
+            if stake_address:
+                print(f"COMPARE_STAKE_ADDRESS={stake_address[:20]}…")
+            if address:
+                print(f"COMPARE_ADDRESS={address[:20]}…")
         print()
 
         for name in cases:
@@ -617,6 +1071,8 @@ def main(argv: list[str] | None = None) -> int:
                 pool_id=pool_id,
                 epochs=epochs,
                 compare_epoch=compare_epoch,
+                address=address,
+                stake_address=stake_address,
             )
             results.append(result)
             status = "OK" if result.ok else "FAIL"

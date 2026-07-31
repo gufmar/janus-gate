@@ -103,7 +103,7 @@ def blockfrost_pool_to_koios_info(payload: dict[str, Any]) -> list[dict[str, Any
             "deposit": None,
             "reward_addr": payload.get("reward_account"),
             "owners": payload.get("owners") or [],
-            "relays": [],
+            "relays": _bf_relays_inline(payload.get("relays")),
             "meta_url": None,
             "meta_hash": None,
             "meta_json": None,
@@ -167,6 +167,22 @@ def _fraction_to_pct(value: Any) -> Any:
     if value is None or value == "":
         return None
     return float(value) * 100.0
+
+
+def _bf_relays_inline(rows: Any) -> list[dict[str, Any]]:
+    if not isinstance(rows, list):
+        return []
+    return [
+        {
+            "dns": relay.get("dns"),
+            "srv": relay.get("dns_srv"),
+            "ipv4": relay.get("ipv4"),
+            "ipv6": relay.get("ipv6"),
+            "port": relay.get("port"),
+        }
+        for relay in rows
+        if isinstance(relay, dict)
+    ]
 
 
 def koios_pool_history_to_blockfrost(rows: Any) -> list[dict[str, Any]]:

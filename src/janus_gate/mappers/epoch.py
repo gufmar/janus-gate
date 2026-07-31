@@ -96,6 +96,10 @@ def koios_epoch_params_to_blockfrost(rows: Any) -> dict[str, Any]:
 
 def blockfrost_epoch_params_to_koios(payload: dict[str, Any]) -> list[dict[str, Any]]:
     cost_models = payload.get("cost_models_raw") or payload.get("cost_models")
+    # Blockfrost ``min_utxo`` is the Alonzo coins-per-byte value; Koios keeps
+    # legacy ``min_utxo_value`` at "0" and puts the size price in
+    # ``coins_per_utxo_size``.
+    coins = payload.get("coins_per_utxo_size") or payload.get("min_utxo")
     return [
         {
             "epoch_no": payload.get("epoch"),
@@ -115,24 +119,33 @@ def blockfrost_epoch_params_to_koios(payload: dict[str, Any]) -> list[dict[str, 
             "extra_entropy": payload.get("extra_entropy"),
             "protocol_major": payload.get("protocol_major_ver"),
             "protocol_minor": payload.get("protocol_minor_ver"),
-            "min_utxo_value": payload.get("min_utxo"),
+            "min_utxo_value": "0",
             "min_pool_cost": payload.get("min_pool_cost"),
             "nonce": payload.get("nonce"),
             "cost_models": cost_models,
             "price_mem": payload.get("price_mem"),
             "price_step": payload.get("price_step"),
-            "max_tx_ex_mem": payload.get("max_tx_ex_mem"),
-            "max_tx_ex_steps": payload.get("max_tx_ex_steps"),
-            "max_block_ex_mem": payload.get("max_block_ex_mem"),
-            "max_block_ex_steps": payload.get("max_block_ex_steps"),
-            "max_val_size": payload.get("max_val_size"),
+            "max_tx_ex_mem": _as_int(payload.get("max_tx_ex_mem")),
+            "max_tx_ex_steps": _as_int(payload.get("max_tx_ex_steps")),
+            "max_block_ex_mem": _as_int(payload.get("max_block_ex_mem")),
+            "max_block_ex_steps": _as_int(payload.get("max_block_ex_steps")),
+            "max_val_size": _as_int(payload.get("max_val_size")),
             "collateral_percent": payload.get("collateral_percent"),
             "max_collateral_inputs": payload.get("max_collateral_inputs"),
-            "coins_per_utxo_size": payload.get("coins_per_utxo_size"),
+            "coins_per_utxo_size": None if coins is None else str(coins),
             "block_hash": None,
             "era": None,
         }
     ]
+
+
+def _as_int(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def koios_epoch_blocks_to_blockfrost(rows: Any) -> list[str]:
