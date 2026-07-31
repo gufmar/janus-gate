@@ -282,11 +282,19 @@ class BlockfrostProvider(HttpProvider):
         page: int = 1,
         order: str = "asc",
     ) -> Any:
-        return await self.request(
-            "GET",
-            f"/pools/{pool_id}/votes",
-            params={"count": count, "page": page, "order": order},
-        )
+        from janus_gate.providers.base import ProviderError
+
+        try:
+            return await self.request(
+                "GET",
+                f"/pools/{pool_id}/votes",
+                params={"count": count, "page": page, "order": order},
+            )
+        except ProviderError as exc:
+            # Blockfrost often 404s when a pool has no indexed votes.
+            if exc.status_code == 404:
+                return []
+            raise
 
     async def get_epoch_blocks(
         self,

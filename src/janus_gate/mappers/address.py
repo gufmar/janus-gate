@@ -103,6 +103,7 @@ def blockfrost_extended_to_koios(payload: dict[str, Any]) -> list[dict[str, Any]
 
 
 def koios_address_assets_to_blockfrost(rows: Any) -> list[dict[str, Any]]:
+    """Map Koios address_assets (flat rows) to BF amount-like unit/quantity list."""
     if not isinstance(rows, list):
         raise ValueError("Unexpected Koios address_assets payload")
     out: list[dict[str, Any]] = []
@@ -126,7 +127,8 @@ def koios_address_assets_to_blockfrost(rows: Any) -> list[dict[str, Any]]:
                         ),
                     }
                 )
-        elif row.get("policy_id"):
+            continue
+        if row.get("policy_id"):
             policy = row.get("policy_id") or ""
             name = row.get("asset_name") or ""
             out.append(
@@ -145,27 +147,30 @@ def koios_address_assets_to_blockfrost(rows: Any) -> list[dict[str, Any]]:
 def blockfrost_amounts_to_koios_address_assets(
     rows: Any, address: str
 ) -> list[dict[str, Any]]:
-    """Map BF amount[] (or address summary) into Koios address_assets shape."""
+    """Map BF amount[] (or address summary) into Koios flat address_assets rows."""
     if isinstance(rows, dict):
         amounts = rows.get("amount") or []
         address = str(rows.get("address") or address)
     else:
         amounts = rows if isinstance(rows, list) else []
-    assets: list[dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
     for item in amounts:
         if not isinstance(item, dict):
             continue
         unit = str(item.get("unit") or "")
         if not unit or unit == "lovelace" or len(unit) < 56:
             continue
-        assets.append(
+        out.append(
             {
+                "address": address,
                 "policy_id": unit[:56],
                 "asset_name": unit[56:],
+                "fingerprint": None,
+                "decimals": None,
                 "quantity": item.get("quantity"),
             }
         )
-    return [{"address": address, "asset_list": assets}]
+    return out
 
 
 def blockfrost_address_to_koios(payload: dict[str, Any]) -> list[dict[str, Any]]:

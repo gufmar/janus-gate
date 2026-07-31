@@ -227,5 +227,7 @@ def test_address_extended_and_assets_mapping() -> None:
         },
         "addr1test",
     )
-    assert assets[0]["asset_list"][0]["policy_id"] == "a" * 56
-    assert assets[0]["asset_list"][0]["asset_name"] == "bb"
+    assert len(assets) == 1
+    assert assets[0]["policy_id"] == "a" * 56
+    assert assets[0]["asset_name"] == "bb"
+    assert assets[0]["address"] == "addr1test"

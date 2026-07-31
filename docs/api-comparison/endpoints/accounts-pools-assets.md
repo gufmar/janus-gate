@@ -58,4 +58,6 @@ Asset history flattens Koios nested `minting_txs` into BF `{tx_hash, amount, act
 | `GET /addresses/{address}/extended` | Derived from `POST /address_info` |
 | (amount native tokens) | `POST /address_assets` |
 
-Extended pads `decimals=null` and `has_nft_onchain_metadata=false` (Partial/Gap). Address assets maps BF `amount[]` units into Koios `{policy_id, asset_name, quantity}` lists (lovelace omitted).
+Extended pads `decimals=null` and `has_nft_onchain_metadata=false` (Partial/Gap). Address assets maps BF `amount[]` units into Koios flat rows `{address, policy_id, asset_name, quantity}` (`fingerprint`/`decimals` Gap). Inventory can be Partial when BF summary is thinner than Koios `address_assets`.
+
+Pool votes: Blockfrost often 404s (or returns empty) for SPO vote history that Koios still lists. Janus treats BF 404 as `[]`; compare marks inventory mismatch as soft Gap.
